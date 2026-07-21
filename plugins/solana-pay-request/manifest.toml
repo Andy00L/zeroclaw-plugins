@@ -1,0 +1,10 @@
+name = "solana-pay-request"
+version = "0.1.0"
+description = "Solana Pay payment terminal: build transfer request URLs into the operator's configured wallet, with per-payment reference keys"
+author = "Andy00L"
+wasm_path = "solana_pay_request.wasm"
+capabilities = ["tool"]
+# config_read only: the recipient wallet and any extra token symbols come
+# from the operator's config section. No http_client: this plugin never
+# touches the network and holds zero secrets.
+permissions = ["config_read"]
