@@ -1,0 +1,11 @@
+name = "spl-transfer-build"
+version = "0.1.0"
+description = "Build unsigned SPL transfers with recipient allowlist, per-call caps, an on-chain mint risk gate, and durable nonce support"
+author = "Andy00L"
+wasm_path = "spl_transfer_build.wasm"
+capabilities = ["tool"]
+# http_client: JSON-RPC reads only (mint inspection, account existence,
+# blockhash or nonce state). config_read: sender wallet, recipient
+# allowlist, token map with per-call caps, optional nonce account. The
+# plugin never holds a private key and never submits a transaction.
+permissions = ["http_client", "config_read"]
