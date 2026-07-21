@@ -1,0 +1,11 @@
+name = "token-risk-check"
+version = "0.1.0"
+description = "Red/amber/green risk report for any Solana token mint: authorities, Token-2022 extensions, holder concentration"
+author = "Andy00L"
+wasm_path = "token_risk_check.wasm"
+capabilities = ["tool"]
+# http_client: outbound JSON-RPC to the configured Solana endpoint.
+# config_read: the operator's rpc_url arrives via the injected __config
+# section. With an empty config the plugin still works against the public
+# mainnet endpoint.
+permissions = ["http_client", "config_read"]
