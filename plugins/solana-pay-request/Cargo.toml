@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 wit-bindgen = "0.46"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-solana-wasip2-core = { path = "../../solana-wasip2-core" }
+solana-wasip2-core = "0.1.0"
 
 # Reference keys are random 32-byte values; wasip2 serves them through the
 # WASI 0.2 random interface. Host tests inject a fixed generator instead.

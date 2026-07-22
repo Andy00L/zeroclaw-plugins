@@ -1008,6 +1008,8 @@ dependencies = [
 [[package]]
 name = "solana-wasip2-core"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b237ee320617b16d9d115ddce687be1dae287a10e420a6ddbd22abe06e957f6e"
 dependencies = [
  "base64",
  "bincode",

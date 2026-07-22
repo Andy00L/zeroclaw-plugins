@@ -8,6 +8,9 @@ repository = "https://github.com/Andy00L/zeroclaw-plugins"
 readme = "README.md"
 keywords = ["solana", "wasm", "wasip2", "wasi", "zeroclaw"]
 categories = ["wasm", "cryptography::cryptocurrencies"]
+# Package only what a library consumer needs; the oracle tooling, fixtures,
+# and proof harness live in the repository, not in the crate archive.
+include = ["/src", "/Cargo.toml", "/README.md", "/LICENSE", "/EVIDENCE.md"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

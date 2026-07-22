@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 wit-bindgen = "0.46"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-solana-wasip2-core = { path = "../../solana-wasip2-core" }
+solana-wasip2-core = "0.1.0"
 
 # Host-test-only: decode the produced base64 transactions and synthesize
 # nonce account state exactly as the chain stores it.
