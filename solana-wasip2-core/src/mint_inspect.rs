@@ -81,8 +81,11 @@ pub struct RiskAssessment {
 /// Extension labels that are benign for holders and only reported, never
 /// scored: pointers and metadata (sourceRef: observed jsonParsed labels on
 /// mainnet, tests/fixtures/mint_pyusd_json_parsed.json).
-const INFORMATIONAL_EXTENSION_LABELS: [&str; 3] =
-    ["metadataPointer", "tokenMetadata", "confidentialTransferFeeConfig"];
+const INFORMATIONAL_EXTENSION_LABELS: [&str; 3] = [
+    "metadataPointer",
+    "tokenMetadata",
+    "confidentialTransferFeeConfig",
+];
 
 /// Parse jsonParsed mint account data into facts. Fails with distinct errors
 /// when the account is not a mint or not owned by a token program.
@@ -179,7 +182,10 @@ fn apply_extension(facts: &mut MintFacts, extension_entry: &Value) {
                 .or(Some("(unreadable delegate)".to_string()));
         }
         "transferFeeConfig" => {
-            let newer_fee = state.get("newerTransferFee").cloned().unwrap_or(Value::Null);
+            let newer_fee = state
+                .get("newerTransferFee")
+                .cloned()
+                .unwrap_or(Value::Null);
             facts.transfer_fee = Some(TransferFeeFacts {
                 basis_points: newer_fee
                     .get("transferFeeBasisPoints")
@@ -212,7 +218,10 @@ fn apply_extension(facts: &mut MintFacts, extension_entry: &Value) {
         "confidentialTransferMint" => facts.confidential_transfers = true,
         "mintCloseAuthority" => facts.mint_close_authority = true,
         "tokenMetadata" => {
-            facts.name = state.get("name").and_then(Value::as_str).map(str::to_string);
+            facts.name = state
+                .get("name")
+                .and_then(Value::as_str)
+                .map(str::to_string);
             facts.symbol = state
                 .get("symbol")
                 .and_then(Value::as_str)

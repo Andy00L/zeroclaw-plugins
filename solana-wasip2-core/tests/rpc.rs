@@ -26,7 +26,10 @@ fn latest_blockhash_is_parsed_and_the_request_is_well_formed() {
     let client = RpcClient::new(transport, RPC_URL);
     let blockhash = client.get_latest_blockhash().unwrap();
     // Value captured in the fixture.
-    assert_eq!(blockhash.to_string(), "D277KYCrJsSujJyqKpwwaGW2v8QRFtYnJ3qAC39SZ1tF");
+    assert_eq!(
+        blockhash.to_string(),
+        "D277KYCrJsSujJyqKpwwaGW2v8QRFtYnJ3qAC39SZ1tF"
+    );
 }
 
 #[test]
@@ -60,7 +63,10 @@ fn a_json_rpc_error_maps_to_a_distinct_error_variant() {
 fn transport_errors_pass_through_unchanged() {
     let transport = MockTransport::with_responses(vec![Err(CoreError::HttpStatus(500))]);
     let client = RpcClient::new(transport, RPC_URL);
-    assert_eq!(client.get_latest_blockhash().unwrap_err(), CoreError::HttpStatus(500));
+    assert_eq!(
+        client.get_latest_blockhash().unwrap_err(),
+        CoreError::HttpStatus(500)
+    );
 }
 
 #[test]
@@ -68,7 +74,10 @@ fn a_missing_account_is_none_not_an_error() {
     let transport = MockTransport::from_fixtures(&[ACCOUNT_MISSING_FIXTURE]);
     let client = RpcClient::new(transport, RPC_URL);
     let missing_address = parse_pubkey("9PhSoeYzLagajautCYUfUXSB6acpeP1LLQDKpZnegLDq").unwrap();
-    assert!(client.get_parsed_account_info(&missing_address).unwrap().is_none());
+    assert!(client
+        .get_parsed_account_info(&missing_address)
+        .unwrap()
+        .is_none());
 }
 
 #[test]
@@ -77,7 +86,10 @@ fn a_parsed_token_mint_account_is_returned_with_its_owner() {
     let client = RpcClient::new(transport, RPC_URL);
     let usdc_mint = parse_pubkey(USDC_MINT).unwrap();
     let account = client.get_parsed_account_info(&usdc_mint).unwrap().unwrap();
-    assert_eq!(account.owner_program, "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    assert_eq!(
+        account.owner_program,
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    );
     assert_eq!(account.parsed_program_label, "spl-token");
     assert_eq!(account.parsed_json["type"], "mint");
 }
@@ -115,7 +127,10 @@ fn largest_accounts_parse_amounts_as_integers() {
     let largest_accounts = client.get_token_largest_accounts(&mint).unwrap();
     assert_eq!(largest_accounts.len(), 2);
     assert_eq!(largest_accounts[0].amount_base_units, 600_000_000_000_000);
-    assert_eq!(largest_accounts[1].address, "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B");
+    assert_eq!(
+        largest_accounts[1].address,
+        "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B"
+    );
 }
 
 #[test]

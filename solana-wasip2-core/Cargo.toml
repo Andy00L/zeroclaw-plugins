@@ -3,8 +3,11 @@ name = "solana-wasip2-core"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Solana primitives for wasm32-wasip2 WebAssembly components: JSON-RPC over wasi:http, unsigned versioned transaction construction, durable nonce handling, Solana Pay URLs, and token mint risk inspection. Pure core, host-testable."
-repository = "https://github.com/zeroclaw-labs/zeroclaw-plugins"
+description = "Solana primitives for wasm32-wasip2 WebAssembly components: JSON-RPC over wasi:http, unsigned versioned transaction construction, durable nonce handling, Solana Pay URLs, payment settlement verification, and token mint risk inspection. Pure core, host-testable."
+repository = "https://github.com/Andy00L/zeroclaw-plugins"
+readme = "README.md"
+keywords = ["solana", "wasm", "wasip2", "wasi", "zeroclaw"]
+categories = ["wasm", "cryptography::cryptocurrencies"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

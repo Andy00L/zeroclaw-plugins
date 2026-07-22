@@ -4,8 +4,9 @@ Solana primitives for WebAssembly components targeting `wasm32-wasip2`,
 where the standard Solana client stack does not link: no tokio, no reqwest,
 no ring, no sockets, only the host's `wasi:http`. This crate is the substrate
 the ZeroClaw Solana tool plugins in this repository build on, and it is
-usable by any other `tool-plugin` component. 46 host tests, zero network in
-tests, MIT.
+usable by any other `tool-plugin` component. 56 host tests, zero network in
+tests, MIT. Every claim is reproducible with one command: `./prove.sh`
+(see [EVIDENCE.md](EVIDENCE.md)).
 
 ![target](https://img.shields.io/badge/target-wasm32--wasip2-7c3aed)
 ![world](https://img.shields.io/badge/WIT-zeroclaw%3Aplugin%400.1.0-1f8a5b)
@@ -43,6 +44,14 @@ tests, MIT.
 - **Injection-inert output.** `shape::sanitize_untrusted_text` bounds and
   flattens issuer-controlled text (token names, memos) before it reaches an
   LLM context window.
+- **Honest settlement verification.** `payment_verify` computes a
+  recipient's actual balance delta (SPL token or lamports) inside a
+  transaction's metadata, because a transaction merely touching a payment
+  reference is not a payment.
+- **Config hygiene.** `config::find_unknown_config_keys` lets every plugin
+  refuse a typoed config key instead of silently running with a guardrail
+  off, and `token_map` provides the operator-controlled symbol map payment
+  plugins share.
 
 ## How it works
 
@@ -107,6 +116,9 @@ hatch from trap number two of the bounty brief.
 | `nonce` | `parse_nonce_account_data` | durable nonce state, legacy rejected |
 | `pay_url` | `build_transfer_request_url` | Solana Pay transfer requests |
 | `mint_inspect` | `parse_mint_facts`, `assess_mint_risk` | mint facts and red/amber/green scoring |
+| `payment_verify` | `compute_recipient_token_delta`, `compute_recipient_lamport_delta` | settlement by balance delta, not reference touch |
+| `token_map` | `built_in_symbol_map`, `extend_symbol_map_from_config` | operator-controlled token symbols |
+| `config` | `find_unknown_config_keys` | fail-closed config sections |
 | `shape` | `sanitize_untrusted_text` | injection-inert text for LLM output |
 
 ## Reproduce it
@@ -114,15 +126,17 @@ hatch from trap number two of the bounty brief.
 Prerequisites: Rust 1.96+ with the `wasm32-wasip2` target.
 
 ```bash
-cargo test                          # 46 host tests, no network, no wasm toolchain
-rustup target add wasm32-wasip2
-cargo check --target wasm32-wasip2  # the component-side build
+./prove.sh   # everything: 5 crates' tests, clippy both targets, 4 wasm
+             # builds, and the cross-stack oracle vs @solana/web3.js
 ```
 
-Success is all tests green and a clean wasip2 check. Test fixtures under
+Or piecewise: `cargo test` (56 host tests, no network, no wasm toolchain)
+and `cargo check --target wasm32-wasip2`. Test fixtures under
 `tests/fixtures/` are real mainnet RPC responses captured on 2026-07-21
-(USDC and PYUSD mints, a missing account, a live 429 from the public
-endpoint); tests never touch the network.
+(USDC and PYUSD mints, a missing account, a real failed transaction, a
+fee-splitting transfer, a live 429 from the public endpoint); tests never
+touch the network. [EVIDENCE.md](EVIDENCE.md) maps every claim to its
+command.
 
 ## What is real and what is not
 

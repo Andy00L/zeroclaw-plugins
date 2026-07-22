@@ -120,7 +120,8 @@ pub fn build_unsigned_v0_transaction(
     let versioned_message = VersionedMessage::V0(message_v0);
 
     let required_signer_count = versioned_message.header().num_required_signatures as usize;
-    let required_signers = versioned_message.static_account_keys()[..required_signer_count].to_vec();
+    let required_signers =
+        versioned_message.static_account_keys()[..required_signer_count].to_vec();
     let placeholder_signatures = vec![Signature::default(); required_signer_count];
 
     let versioned_transaction = VersionedTransaction {

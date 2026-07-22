@@ -9,7 +9,10 @@ fn ordinary_names_pass_through() {
         sanitize_untrusted_text("PayPal USD", MAX_UNTRUSTED_TEXT_CHARS),
         "PayPal USD"
     );
-    assert_eq!(sanitize_untrusted_text("PYUSD", MAX_UNTRUSTED_TEXT_CHARS), "PYUSD");
+    assert_eq!(
+        sanitize_untrusted_text("PYUSD", MAX_UNTRUSTED_TEXT_CHARS),
+        "PYUSD"
+    );
 }
 
 #[test]
@@ -37,5 +40,8 @@ fn whitespace_runs_collapse_and_edges_trim() {
         "a b \u{200B}c"
     );
     assert_eq!(sanitize_untrusted_text("", MAX_UNTRUSTED_TEXT_CHARS), "");
-    assert_eq!(sanitize_untrusted_text("\n\n\n", MAX_UNTRUSTED_TEXT_CHARS), "");
+    assert_eq!(
+        sanitize_untrusted_text("\n\n\n", MAX_UNTRUSTED_TEXT_CHARS),
+        ""
+    );
 }

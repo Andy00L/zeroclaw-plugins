@@ -22,7 +22,10 @@ pub fn parse_amount_to_base_units(amount_text: &str, decimals: u8) -> Result<u64
     if trimmed.is_empty() {
         return Err(CoreError::InvalidAmount("amount is empty".to_string()));
     }
-    if trimmed.chars().any(|character| !character.is_ascii_digit() && character != '.') {
+    if trimmed
+        .chars()
+        .any(|character| !character.is_ascii_digit() && character != '.')
+    {
         return Err(CoreError::InvalidAmount(format!(
             "amount '{trimmed}' may only contain digits and one decimal point"
         )));
@@ -72,7 +75,9 @@ pub fn parse_amount_to_base_units(amount_text: &str, decimals: u8) -> Result<u64
         .ok_or_else(|| CoreError::InvalidAmount(format!("amount '{trimmed}' overflows")))?;
 
     if base_units == 0 {
-        return Err(CoreError::InvalidAmount("amount must be greater than zero".to_string()));
+        return Err(CoreError::InvalidAmount(
+            "amount must be greater than zero".to_string(),
+        ));
     }
     u64::try_from(base_units).map_err(|_| {
         CoreError::InvalidAmount(format!("amount '{trimmed}' exceeds the 64-bit token range"))

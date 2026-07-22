@@ -12,7 +12,10 @@ fn parses_whole_and_fractional_amounts() {
     assert_eq!(parse_amount_to_base_units("25", 6).unwrap(), 25_000_000);
     assert_eq!(parse_amount_to_base_units("0.5", 6).unwrap(), 500_000);
     assert_eq!(parse_amount_to_base_units(".5", 6).unwrap(), 500_000);
-    assert_eq!(parse_amount_to_base_units("1.234567", 6).unwrap(), 1_234_567);
+    assert_eq!(
+        parse_amount_to_base_units("1.234567", 6).unwrap(),
+        1_234_567
+    );
     assert_eq!(parse_amount_to_base_units("007", 6).unwrap(), 7_000_000);
     assert_eq!(parse_amount_to_base_units(" 25 ", 6).unwrap(), 25_000_000);
     assert_eq!(parse_amount_to_base_units("5.", 6).unwrap(), 5_000_000);
@@ -74,7 +77,10 @@ fn formats_base_units_canonically() {
     assert_eq!(format_base_units(1_234_567, 6), "1.234567");
     assert_eq!(format_base_units(0, 6), "0");
     assert_eq!(format_base_units(1, 6), "0.000001");
-    assert_eq!(format_base_units(u64::MAX as u128, 0), "18446744073709551615");
+    assert_eq!(
+        format_base_units(u64::MAX as u128, 0),
+        "18446744073709551615"
+    );
 }
 
 #[test]

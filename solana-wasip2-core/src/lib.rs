@@ -14,11 +14,14 @@
 
 pub mod addresses;
 pub mod amount;
+pub mod config;
 pub mod error;
 pub mod http;
 pub mod mint_inspect;
 pub mod nonce;
 pub mod pay_url;
+pub mod payment_verify;
 pub mod rpc;
 pub mod shape;
+pub mod token_map;
 pub mod txbuild;

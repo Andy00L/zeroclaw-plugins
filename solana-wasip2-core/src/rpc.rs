@@ -31,6 +31,16 @@ pub struct LargestTokenAccount {
     pub amount_base_units: u128,
 }
 
+/// One entry from `getSignaturesForAddress`.
+#[derive(Debug)]
+pub struct SignatureRecord {
+    pub signature: String,
+    pub slot: u64,
+    /// The transaction landed but its execution failed (`err` non-null);
+    /// a failed transaction moved no value.
+    pub failed: bool,
+}
+
 pub struct RpcClient<Transport: JsonHttpTransport> {
     transport: Transport,
     rpc_url: String,
@@ -76,7 +86,9 @@ impl<Transport: JsonHttpTransport> RpcClient<Transport> {
             .pointer("/value/blockhash")
             .and_then(Value::as_str)
             .ok_or_else(|| {
-                CoreError::MalformedResponse("getLatestBlockhash: missing value.blockhash".to_string())
+                CoreError::MalformedResponse(
+                    "getLatestBlockhash: missing value.blockhash".to_string(),
+                )
             })?;
         blockhash_text
             .parse::<Hash>()
@@ -100,7 +112,9 @@ impl<Transport: JsonHttpTransport> RpcClient<Transport> {
         let owner_program = account_value
             .get("owner")
             .and_then(Value::as_str)
-            .ok_or_else(|| CoreError::MalformedResponse("getAccountInfo: missing owner".to_string()))?
+            .ok_or_else(|| {
+                CoreError::MalformedResponse("getAccountInfo: missing owner".to_string())
+            })?
             .to_string();
         let parsed_program_label = account_value
             .pointer("/data/program")
@@ -112,7 +126,8 @@ impl<Transport: JsonHttpTransport> RpcClient<Transport> {
             .cloned()
             .ok_or_else(|| {
                 CoreError::MalformedResponse(
-                    "getAccountInfo: account data was not jsonParsed (unknown program?)".to_string(),
+                    "getAccountInfo: account data was not jsonParsed (unknown program?)"
+                        .to_string(),
                 )
             })?;
         Ok(Some(ParsedAccountInfo {
@@ -172,7 +187,9 @@ impl<Transport: JsonHttpTransport> RpcClient<Transport> {
             .pointer("/value")
             .and_then(Value::as_array)
             .ok_or_else(|| {
-                CoreError::MalformedResponse("getTokenLargestAccounts: missing value array".to_string())
+                CoreError::MalformedResponse(
+                    "getTokenLargestAccounts: missing value array".to_string(),
+                )
             })?;
         let mut largest_accounts = Vec::with_capacity(entries.len());
         for entry in entries {
@@ -200,5 +217,71 @@ impl<Transport: JsonHttpTransport> RpcClient<Transport> {
             });
         }
         Ok(largest_accounts)
+    }
+
+    /// `getSignaturesForAddress`, newest first. `until` excludes that
+    /// signature and everything older, which is the cursor pattern a
+    /// stateless watcher needs (sourceRef:
+    /// https://solana.com/docs/rpc/http/getsignaturesforaddress).
+    pub fn get_signatures_for_address(
+        &self,
+        address: &Pubkey,
+        until_signature: Option<&str>,
+        limit: u16,
+    ) -> Result<Vec<SignatureRecord>, CoreError> {
+        let mut options = json!({ "limit": limit, "commitment": "confirmed" });
+        if let Some(cursor_signature) = until_signature {
+            options["until"] = json!(cursor_signature);
+        }
+        let result = self.call(
+            "getSignaturesForAddress",
+            json!([address.to_string(), options]),
+        )?;
+        let entries = result.as_array().ok_or_else(|| {
+            CoreError::MalformedResponse(
+                "getSignaturesForAddress: result is not an array".to_string(),
+            )
+        })?;
+        let mut signature_records = Vec::with_capacity(entries.len());
+        for entry in entries {
+            let signature = entry
+                .get("signature")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    CoreError::MalformedResponse(
+                        "getSignaturesForAddress: entry missing signature".to_string(),
+                    )
+                })?
+                .to_string();
+            let slot = entry.get("slot").and_then(Value::as_u64).ok_or_else(|| {
+                CoreError::MalformedResponse(
+                    "getSignaturesForAddress: entry missing slot".to_string(),
+                )
+            })?;
+            signature_records.push(SignatureRecord {
+                signature,
+                slot,
+                failed: !matches!(entry.get("err"), Some(Value::Null) | None),
+            });
+        }
+        Ok(signature_records)
+    }
+
+    /// `getTransaction` with jsonParsed encoding and v0 support. `Ok(None)`
+    /// means the node does not have the transaction. The raw JSON is
+    /// returned; `payment_verify` computes typed facts from it.
+    pub fn get_transaction_json(&self, signature: &str) -> Result<Option<Value>, CoreError> {
+        let result = self.call(
+            "getTransaction",
+            json!([
+                signature,
+                { "encoding": "jsonParsed", "maxSupportedTransactionVersion": 0,
+                  "commitment": "confirmed" }
+            ]),
+        )?;
+        if result.is_null() {
+            return Ok(None);
+        }
+        Ok(Some(result))
     }
 }

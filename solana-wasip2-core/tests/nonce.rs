@@ -10,11 +10,15 @@ use solana_wasip2_core::error::CoreError;
 use solana_wasip2_core::nonce::parse_nonce_account_data;
 
 fn example_authority() -> Pubkey {
-    "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".parse().unwrap()
+    "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
+        .parse()
+        .unwrap()
 }
 
 fn example_blockhash() -> Hash {
-    "D277KYCrJsSujJyqKpwwaGW2v8QRFtYnJ3qAC39SZ1tF".parse().unwrap()
+    "D277KYCrJsSujJyqKpwwaGW2v8QRFtYnJ3qAC39SZ1tF"
+        .parse()
+        .unwrap()
 }
 
 #[test]

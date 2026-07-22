@@ -28,7 +28,9 @@ const SENDER_USDC_ATA: &str = "FGETo8T8wMcN2wCjav8VK6eh3dLk63evNDPxzLSJra8B";
 const RECIPIENT_WALLET: &str = "2apBGMsS6ti9RyF5TwQTDswXBWskiJP2LD4cUEDqYJjk";
 
 fn example_blockhash() -> Hash {
-    "D277KYCrJsSujJyqKpwwaGW2v8QRFtYnJ3qAC39SZ1tF".parse().unwrap()
+    "D277KYCrJsSujJyqKpwwaGW2v8QRFtYnJ3qAC39SZ1tF"
+        .parse()
+        .unwrap()
 }
 
 fn usdc_transfer_spec() -> TransferCheckedSpec {
@@ -104,7 +106,9 @@ fn a_recent_blockhash_transfer_has_the_expected_wire_shape() {
 
 #[test]
 fn a_durable_nonce_transfer_advances_the_nonce_first() {
-    let nonce_account: Pubkey = "4nEWKw6W8uXmF5u9qyDTziARAZdC4YNxFnhgpzsJVDBE".parse().unwrap();
+    let nonce_account: Pubkey = "4nEWKw6W8uXmF5u9qyDTziARAZdC4YNxFnhgpzsJVDBE"
+        .parse()
+        .unwrap();
     let sender: Pubkey = SENDER_WALLET.parse().unwrap();
     let nonce_value = example_blockhash();
     let built = build_spl_transfer_transaction(
@@ -144,7 +148,9 @@ fn a_durable_nonce_transfer_advances_the_nonce_first() {
 
 #[test]
 fn a_distinct_nonce_authority_becomes_a_second_required_signer() {
-    let nonce_account: Pubkey = "4nEWKw6W8uXmF5u9qyDTziARAZdC4YNxFnhgpzsJVDBE".parse().unwrap();
+    let nonce_account: Pubkey = "4nEWKw6W8uXmF5u9qyDTziARAZdC4YNxFnhgpzsJVDBE"
+        .parse()
+        .unwrap();
     let distinct_authority: Pubkey = RECIPIENT_WALLET.parse().unwrap();
     let built = build_spl_transfer_transaction(
         &usdc_transfer_spec(),
@@ -156,7 +162,10 @@ fn a_distinct_nonce_authority_becomes_a_second_required_signer() {
     )
     .unwrap();
     assert_eq!(built.transaction.required_signers.len(), 2);
-    assert!(built.transaction.required_signers.contains(&distinct_authority));
+    assert!(built
+        .transaction
+        .required_signers
+        .contains(&distinct_authority));
 }
 
 #[test]
@@ -181,7 +190,9 @@ fn the_hand_rolled_transfer_checked_matches_the_interface_crates_builder() {
     // so the encoding can never drift from the source of truth.
     let source: Pubkey = SENDER_USDC_ATA.parse().unwrap();
     let mint: Pubkey = USDC_MINT.parse().unwrap();
-    let destination: Pubkey = "4nEWKw6W8uXmF5u9qyDTziARAZdC4YNxFnhgpzsJVDBE".parse().unwrap();
+    let destination: Pubkey = "4nEWKw6W8uXmF5u9qyDTziARAZdC4YNxFnhgpzsJVDBE"
+        .parse()
+        .unwrap();
     let owner: Pubkey = SENDER_WALLET.parse().unwrap();
 
     let hand_rolled = solana_wasip2_core::txbuild::build_transfer_checked_instruction(
@@ -207,8 +218,10 @@ fn the_hand_rolled_transfer_checked_matches_the_interface_crates_builder() {
     assert_eq!(hand_rolled.program_id, interface_built.program_id);
     assert_eq!(hand_rolled.data, interface_built.data);
     assert_eq!(hand_rolled.accounts.len(), interface_built.accounts.len());
-    for (hand_rolled_meta, interface_meta) in
-        hand_rolled.accounts.iter().zip(interface_built.accounts.iter())
+    for (hand_rolled_meta, interface_meta) in hand_rolled
+        .accounts
+        .iter()
+        .zip(interface_built.accounts.iter())
     {
         assert_eq!(hand_rolled_meta.pubkey, interface_meta.pubkey);
         assert_eq!(hand_rolled_meta.is_signer, interface_meta.is_signer);

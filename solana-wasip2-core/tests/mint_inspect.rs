@@ -73,7 +73,11 @@ fn pyusd_parses_its_token_2022_extensions() {
     assert_eq!(facts.name.as_deref(), Some("PayPal USD"));
     assert_eq!(facts.symbol.as_deref(), Some("PYUSD"));
     // Every extension in the fixture is either understood or informational.
-    assert!(facts.other_extensions.is_empty(), "got: {:?}", facts.other_extensions);
+    assert!(
+        facts.other_extensions.is_empty(),
+        "got: {:?}",
+        facts.other_extensions
+    );
 }
 
 #[test]
@@ -145,9 +149,18 @@ fn a_bare_mint_with_no_authorities_scores_green() {
 #[test]
 fn holder_concentration_uses_integer_basis_points() {
     let largest_accounts = vec![
-        LargestTokenAccount { address: "a1".to_string(), amount_base_units: 600 },
-        LargestTokenAccount { address: "a2".to_string(), amount_base_units: 200 },
-        LargestTokenAccount { address: "a3".to_string(), amount_base_units: 100 },
+        LargestTokenAccount {
+            address: "a1".to_string(),
+            amount_base_units: 600,
+        },
+        LargestTokenAccount {
+            address: "a2".to_string(),
+            amount_base_units: 200,
+        },
+        LargestTokenAccount {
+            address: "a3".to_string(),
+            amount_base_units: 100,
+        },
     ];
     let concentration = compute_holder_concentration(&largest_accounts, 1_000).unwrap();
     assert_eq!(concentration.top1_basis_points, 6_000);
@@ -158,7 +171,10 @@ fn holder_concentration_uses_integer_basis_points() {
 #[test]
 fn concentration_is_undefined_for_zero_supply_or_no_accounts() {
     assert!(compute_holder_concentration(&[], 1_000).is_none());
-    let one_account = vec![LargestTokenAccount { address: "a1".to_string(), amount_base_units: 1 }];
+    let one_account = vec![LargestTokenAccount {
+        address: "a1".to_string(),
+        amount_base_units: 1,
+    }];
     assert!(compute_holder_concentration(&one_account, 0).is_none());
 }
 
@@ -174,8 +190,10 @@ fn heavy_concentration_raises_an_amber_finding() {
         }),
     };
     let facts = parse_mint_facts(USDC_MINT, &renounced_mint).unwrap();
-    let largest_accounts =
-        vec![LargestTokenAccount { address: "whale".to_string(), amount_base_units: 600 }];
+    let largest_accounts = vec![LargestTokenAccount {
+        address: "whale".to_string(),
+        amount_base_units: 600,
+    }];
     let concentration = compute_holder_concentration(&largest_accounts, facts.supply_base_units);
     let assessment = assess_mint_risk(&facts, concentration.as_ref());
     assert_eq!(assessment.level, RiskLevel::Amber);

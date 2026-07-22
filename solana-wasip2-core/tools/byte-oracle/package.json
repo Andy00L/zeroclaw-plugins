@@ -1,0 +1,10 @@
+{
+  "name": "byte-oracle",
+  "private": true,
+  "type": "module",
+  "description": "Byte-exactness oracle: solana-wasip2-core unsigned transactions vs @solana/web3.js",
+  "dependencies": {
+    "@solana/web3.js": "^1.95.0",
+    "@solana/spl-token": "^0.4.9"
+  }
+}

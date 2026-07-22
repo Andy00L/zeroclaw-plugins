@@ -41,7 +41,10 @@ fn recipient_alone_yields_a_bare_url() {
         message: None,
         memo: None,
     };
-    assert_eq!(build_transfer_request_url(&request), format!("solana:{RECIPIENT}"));
+    assert_eq!(
+        build_transfer_request_url(&request),
+        format!("solana:{RECIPIENT}")
+    );
 }
 
 #[test]
@@ -85,7 +88,10 @@ fn multiple_references_repeat_the_parameter() {
         recipient: parse_pubkey(RECIPIENT).unwrap(),
         amount: None,
         spl_token: None,
-        reference: vec![parse_pubkey(REFERENCE).unwrap(), parse_pubkey(USDC_MINT).unwrap()],
+        reference: vec![
+            parse_pubkey(REFERENCE).unwrap(),
+            parse_pubkey(USDC_MINT).unwrap(),
+        ],
         label: None,
         message: None,
         memo: None,
