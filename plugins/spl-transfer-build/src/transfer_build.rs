@@ -17,7 +17,9 @@
 
 use std::collections::HashMap;
 
-use solana_wasip2_core::addresses::{parse_pubkey, token_program_id, Pubkey, TOKEN_2022_PROGRAM_ID};
+use solana_wasip2_core::addresses::{
+    parse_pubkey, token_program_id, Pubkey, TOKEN_2022_PROGRAM_ID,
+};
 use solana_wasip2_core::amount::{format_base_units, parse_amount_to_base_units};
 use solana_wasip2_core::error::CoreError;
 use solana_wasip2_core::http::JsonHttpTransport;
@@ -52,6 +54,18 @@ pub struct TransferTokenEntry {
     pub max_amount_base_units: u64,
 }
 
+/// The complete accepted config surface; anything else is a typo and the
+/// plugin refuses to run with it (fail closed, never fail open). A silently
+/// ignored `allowed_recipient` (singular) would disable the allowlist.
+const ACCEPTED_CONFIG_KEYS: [&str; 6] = [
+    "allowed_recipients",
+    "nonce_account",
+    "override_risk_gate",
+    "rpc_url",
+    "sender_wallet",
+    "tokens",
+];
+
 pub struct TransferBuildConfig {
     pub rpc_url: String,
     pub sender_wallet: Option<Pubkey>,
@@ -65,13 +79,24 @@ impl TransferBuildConfig {
     /// Build from the flat string map the host injects. An empty section
     /// yields a config that can build nothing: no sender, no allowlist.
     pub fn from_section(section: &HashMap<String, String>) -> Result<Self, String> {
+        let unknown_keys =
+            solana_wasip2_core::config::find_unknown_config_keys(section, &ACCEPTED_CONFIG_KEYS);
+        if !unknown_keys.is_empty() {
+            return Err(solana_wasip2_core::config::describe_unknown_config_keys(
+                &unknown_keys,
+                &ACCEPTED_CONFIG_KEYS,
+            ));
+        }
         let rpc_url = section
             .get("rpc_url")
             .filter(|configured_url| !configured_url.is_empty())
             .cloned()
             .unwrap_or_else(|| DEFAULT_RPC_URL.to_string());
 
-        let sender_wallet = match section.get("sender_wallet").filter(|value| !value.is_empty()) {
+        let sender_wallet = match section
+            .get("sender_wallet")
+            .filter(|value| !value.is_empty())
+        {
             Some(sender_text) => Some(parse_pubkey(sender_text).map_err(|_| {
                 format!("config error: sender_wallet '{sender_text}' is not a valid address")
             })?),
@@ -99,8 +124,11 @@ impl TransferBuildConfig {
             TransferTokenEntry {
                 mint: parse_pubkey(USDC_MINT).expect("constant mint must parse"),
                 decimals: USDC_DECIMALS,
-                max_amount_base_units: parse_amount_to_base_units(DEFAULT_USDC_CAP_UI, USDC_DECIMALS)
-                    .expect("constant cap must parse"),
+                max_amount_base_units: parse_amount_to_base_units(
+                    DEFAULT_USDC_CAP_UI,
+                    USDC_DECIMALS,
+                )
+                .expect("constant cap must parse"),
             },
         );
         if let Some(token_list) = section.get("tokens").filter(|value| !value.is_empty()) {
@@ -110,7 +138,10 @@ impl TransferBuildConfig {
             }
         }
 
-        let nonce_account = match section.get("nonce_account").filter(|value| !value.is_empty()) {
+        let nonce_account = match section
+            .get("nonce_account")
+            .filter(|value| !value.is_empty())
+        {
             Some(nonce_text) => Some(parse_pubkey(nonce_text).map_err(|_| {
                 format!("config error: nonce_account '{nonce_text}' is not a valid address")
             })?),
@@ -204,10 +235,18 @@ pub struct ToolOutcome {
 
 impl ToolOutcome {
     fn succeed(output: String) -> Self {
-        Self { success: true, output, error: None }
+        Self {
+            success: true,
+            output,
+            error: None,
+        }
     }
     fn fail(error_message: String) -> Self {
-        Self { success: false, output: String::new(), error: Some(error_message) }
+        Self {
+            success: false,
+            output: String::new(),
+            error: Some(error_message),
+        }
     }
 }
 
@@ -227,7 +266,10 @@ fn risk_gate_findings(facts: &MintFacts) -> Vec<String> {
         ));
     }
     if facts.default_account_state_frozen {
-        findings.push("new token accounts start frozen; the recipient may be unable to use the funds".to_string());
+        findings.push(
+            "new token accounts start frozen; the recipient may be unable to use the funds"
+                .to_string(),
+        );
     }
     if facts.non_transferable {
         findings.push("the token is non-transferable".to_string());

@@ -14,24 +14,16 @@ use solana_wasip2_core::amount::canonicalize_decimal_amount;
 use solana_wasip2_core::error::CoreError;
 use solana_wasip2_core::pay_url::{build_transfer_request_url, TransferRequest};
 use solana_wasip2_core::shape::sanitize_untrusted_text;
-
-/// Mainnet USDC mint and decimals (sourceRef: Circle,
-/// https://developers.circle.com/stablecoins/usdc-on-main-networks).
-const USDC_MINT: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-const USDC_DECIMALS: u8 = 6;
-/// Native SOL precision in decimals (sourceRef:
-/// https://docs.solanapay.com/spec, amount field).
-const SOL_DECIMALS: u8 = 9;
+use solana_wasip2_core::token_map::{
+    built_in_symbol_map, extend_symbol_map_from_config, SymbolTokenEntry,
+};
 
 /// Longest free-text field accepted before sanitization, in characters.
 const MAX_TEXT_FIELD_CHARS: usize = 64;
 
-/// One entry of the token symbol map: `None` mint means native SOL.
-#[derive(Debug, Clone)]
-pub struct TokenEntry {
-    pub mint: Option<Pubkey>,
-    pub decimals: u8,
-}
+/// The complete accepted config surface; anything else is a typo and the
+/// plugin refuses to run with it (fail closed, never fail open).
+const ACCEPTED_CONFIG_KEYS: [&str; 2] = ["recipient", "tokens"];
 
 /// Operator configuration from the plugin's jailed config section.
 pub struct PayRequestConfig {
@@ -40,7 +32,7 @@ pub struct PayRequestConfig {
     pub recipient: Option<Pubkey>,
     /// Uppercased symbol -> token entry. Always contains USDC and SOL;
     /// operators may add entries via the `tokens` key.
-    pub tokens: HashMap<String, TokenEntry>,
+    pub tokens: HashMap<String, SymbolTokenEntry>,
 }
 
 impl PayRequestConfig {
@@ -48,75 +40,28 @@ impl PayRequestConfig {
     /// yields the built-in token map and no recipient, which makes every
     /// request fail closed with a setup instruction.
     pub fn from_section(section: &HashMap<String, String>) -> Result<Self, String> {
+        let unknown_keys =
+            solana_wasip2_core::config::find_unknown_config_keys(section, &ACCEPTED_CONFIG_KEYS);
+        if !unknown_keys.is_empty() {
+            return Err(solana_wasip2_core::config::describe_unknown_config_keys(
+                &unknown_keys,
+                &ACCEPTED_CONFIG_KEYS,
+            ));
+        }
         let recipient = match section.get("recipient").filter(|value| !value.is_empty()) {
-            Some(recipient_text) => Some(
-                parse_pubkey(recipient_text)
-                    .map_err(|_| format!("config error: recipient '{recipient_text}' is not a valid address"))?,
-            ),
+            Some(recipient_text) => Some(parse_pubkey(recipient_text).map_err(|_| {
+                format!("config error: recipient '{recipient_text}' is not a valid address")
+            })?),
             None => None,
         };
 
-        let mut tokens: HashMap<String, TokenEntry> = HashMap::new();
-        tokens.insert(
-            "USDC".to_string(),
-            TokenEntry {
-                mint: Some(parse_pubkey(USDC_MINT).expect("constant mint must parse")),
-                decimals: USDC_DECIMALS,
-            },
-        );
-        tokens.insert(
-            "SOL".to_string(),
-            TokenEntry {
-                mint: None,
-                decimals: SOL_DECIMALS,
-            },
-        );
-
+        let mut tokens = built_in_symbol_map();
         // Operator extensions: "PYUSD=2b1k...:6,BRZ=FtgG...:4".
         if let Some(token_list) = section.get("tokens").filter(|value| !value.is_empty()) {
-            for token_definition in token_list.split(',') {
-                let (symbol, entry) = parse_token_definition(token_definition)?;
-                tokens.insert(symbol, entry);
-            }
+            extend_symbol_map_from_config(&mut tokens, token_list)?;
         }
         Ok(Self { recipient, tokens })
     }
-}
-
-/// Parse one "SYMBOL=MINT:DECIMALS" config entry with distinct errors.
-fn parse_token_definition(token_definition: &str) -> Result<(String, TokenEntry), String> {
-    let trimmed_definition = token_definition.trim();
-    let (symbol_text, mint_and_decimals) = trimmed_definition.split_once('=').ok_or(format!(
-        "config error: token entry '{trimmed_definition}' must look like SYMBOL=MINT:DECIMALS"
-    ))?;
-    let (mint_text, decimals_text) = mint_and_decimals.split_once(':').ok_or(format!(
-        "config error: token entry '{trimmed_definition}' is missing ':DECIMALS'"
-    ))?;
-    let mint = parse_pubkey(mint_text)
-        .map_err(|_| format!("config error: token mint '{mint_text}' is not a valid address"))?;
-    let decimals: u8 = decimals_text.trim().parse().map_err(|_| {
-        format!("config error: token decimals '{decimals_text}' is not a number")
-    })?;
-    // Solana Pay caps amount precision at 9 decimals; a larger value here is
-    // almost certainly a typo (sourceRef: https://docs.solanapay.com/spec).
-    if decimals > 9 {
-        return Err(format!(
-            "config error: token decimals {decimals} exceeds the Solana Pay maximum of 9"
-        ));
-    }
-    let symbol = symbol_text.trim().to_uppercase();
-    if symbol.is_empty() {
-        return Err(format!(
-            "config error: token entry '{trimmed_definition}' has an empty symbol"
-        ));
-    }
-    Ok((
-        symbol,
-        TokenEntry {
-            mint: Some(mint),
-            decimals,
-        },
-    ))
 }
 
 /// Model-facing arguments. Unknown fields are rejected outright, so a
@@ -148,10 +93,18 @@ pub struct ToolOutcome {
 
 impl ToolOutcome {
     fn succeed(output: String) -> Self {
-        Self { success: true, output, error: None }
+        Self {
+            success: true,
+            output,
+            error: None,
+        }
     }
     fn fail(error_message: String) -> Self {
-        Self { success: false, output: String::new(), error: Some(error_message) }
+        Self {
+            success: false,
+            output: String::new(),
+            error: Some(error_message),
+        }
     }
 }
 
@@ -185,8 +138,7 @@ pub fn execute_pay_request(
         .trim()
         .to_uppercase();
     let Some(token_entry) = config.tokens.get(&requested_symbol) else {
-        let mut known_symbols: Vec<&str> =
-            config.tokens.keys().map(String::as_str).collect();
+        let mut known_symbols: Vec<&str> = config.tokens.keys().map(String::as_str).collect();
         known_symbols.sort_unstable();
         return ToolOutcome::fail(format!(
             "token '{requested_symbol}' is not configured; configured tokens: {}",
@@ -203,13 +155,12 @@ pub fn execute_pay_request(
     };
 
     let reference_key = Pubkey::new_from_array(generate_reference_bytes());
-    let sanitize_field =
-        |field: &Option<String>| -> Option<String> {
-            field
-                .as_deref()
-                .map(|field_text| sanitize_untrusted_text(field_text, MAX_TEXT_FIELD_CHARS))
-                .filter(|sanitized| !sanitized.is_empty())
-        };
+    let sanitize_field = |field: &Option<String>| -> Option<String> {
+        field
+            .as_deref()
+            .map(|field_text| sanitize_untrusted_text(field_text, MAX_TEXT_FIELD_CHARS))
+            .filter(|sanitized| !sanitized.is_empty())
+    };
 
     let transfer_request = TransferRequest {
         recipient,

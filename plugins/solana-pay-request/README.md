@@ -35,6 +35,9 @@ Secrets held: none. Keys held: none. Network access: none.
 | `recipient` | (unset) | The receiving wallet. Until set, every request fails with a setup instruction. |
 | `tokens` | (empty) | Extra symbols: `PYUSD=2b1kV6...GXo:6,BRL2=...:4` (SYMBOL=MINT:DECIMALS, comma-separated, decimals 9 max). |
 
+Unknown keys refuse to run: a typo produces a distinct config error naming
+the key instead of silently ignoring it (fail closed, tested).
+
 ## Worked example
 
 Model call:
@@ -124,13 +127,21 @@ only exports are `zeroclaw:plugin/plugin-info@0.1.0` and
 ## Install
 
 Copy this directory (the `.wasm` next to its `manifest.toml`) into your
-configured plugins dir, enable plugins, and set `recipient` (and optionally
-`tokens`) in the config section stored under this plugin's name; see the
-ZeroClaw plugin docs for the config command syntax on your install.
+configured plugins dir, then enable plugins and add the entry (exact shape
+per `PluginEntryConfig` in zeroclaw-config; note issue #8636: the first
+write for a fresh plugin currently needs the entry added to the config file
+by hand):
 
 ```toml
 [plugins]
 enabled = true
+
+[[plugins.entries]]
+name = "solana-pay-request"
+
+[plugins.entries.config]
+recipient = "<your receiving wallet>"
+# tokens = "PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:6"
 ```
 
 Run the agent with a build that includes a compiler backend, e.g.

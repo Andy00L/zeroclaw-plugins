@@ -102,9 +102,17 @@ mod component {
         fn execute(args: String) -> Result<ToolResult, String> {
             let outcome = execute_pay_request(&args, generate_reference_bytes);
             let (action, wit_outcome, message) = if outcome.success {
-                (PluginAction::Complete, PluginOutcome::Success, "payment request created")
+                (
+                    PluginAction::Complete,
+                    PluginOutcome::Success,
+                    "payment request created",
+                )
             } else {
-                (PluginAction::Fail, PluginOutcome::Failure, "payment request rejected")
+                (
+                    PluginAction::Fail,
+                    PluginOutcome::Failure,
+                    "payment request rejected",
+                )
             };
             log_record(
                 LogLevel::Info,

@@ -93,9 +93,17 @@ mod component {
         fn execute(args: String) -> Result<ToolResult, String> {
             let outcome = execute_transfer_build(WakiJsonTransport::default(), &args);
             let (action, wit_outcome, message) = if outcome.success {
-                (PluginAction::Complete, PluginOutcome::Success, "unsigned transfer built")
+                (
+                    PluginAction::Complete,
+                    PluginOutcome::Success,
+                    "unsigned transfer built",
+                )
             } else {
-                (PluginAction::Reject, PluginOutcome::Failure, "transfer refused")
+                (
+                    PluginAction::Reject,
+                    PluginOutcome::Failure,
+                    "transfer refused",
+                )
             };
             log_record(
                 LogLevel::Info,

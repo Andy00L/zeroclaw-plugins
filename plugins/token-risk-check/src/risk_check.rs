@@ -28,6 +28,10 @@ pub const DEFAULT_RPC_URL: &str = "https://api.mainnet-beta.solana.com";
 /// Length bound for RPC error text echoed into a report.
 const MAX_ERROR_TEXT_CHARS: usize = 120;
 
+/// The complete accepted config surface; anything else is a typo and the
+/// plugin refuses to run with it (fail closed, never fail open).
+const ACCEPTED_CONFIG_KEYS: [&str; 1] = ["rpc_url"];
+
 /// Operator configuration, resolved from the plugin's jailed config section.
 /// An empty section (the unconfigured and the no-`config_read` case) must
 /// produce safe defaults.
@@ -36,13 +40,21 @@ pub struct RiskCheckConfig {
 }
 
 impl RiskCheckConfig {
-    pub fn from_section(section: &HashMap<String, String>) -> Self {
+    pub fn from_section(section: &HashMap<String, String>) -> Result<Self, String> {
+        let unknown_keys =
+            solana_wasip2_core::config::find_unknown_config_keys(section, &ACCEPTED_CONFIG_KEYS);
+        if !unknown_keys.is_empty() {
+            return Err(solana_wasip2_core::config::describe_unknown_config_keys(
+                &unknown_keys,
+                &ACCEPTED_CONFIG_KEYS,
+            ));
+        }
         let rpc_url = section
             .get("rpc_url")
             .filter(|configured_url| !configured_url.is_empty())
             .cloned()
             .unwrap_or_else(|| DEFAULT_RPC_URL.to_string());
-        Self { rpc_url }
+        Ok(Self { rpc_url })
     }
 }
 
@@ -95,7 +107,10 @@ pub fn execute_risk_check<Transport: JsonHttpTransport>(
             return ToolOutcome::fail(format!("invalid arguments: {parse_error}"));
         }
     };
-    let config = RiskCheckConfig::from_section(&args.config);
+    let config = match RiskCheckConfig::from_section(&args.config) {
+        Ok(config) => config,
+        Err(config_error) => return ToolOutcome::fail(config_error),
+    };
     let mint_address = match parse_pubkey(&args.mint) {
         Ok(parsed_mint) => parsed_mint,
         Err(address_error) => return ToolOutcome::fail(address_error.to_string()),
@@ -105,7 +120,9 @@ pub fn execute_risk_check<Transport: JsonHttpTransport>(
     let account = match client.get_parsed_account_info(&mint_address) {
         Ok(Some(account)) => account,
         Ok(None) => {
-            return ToolOutcome::fail(CoreError::AccountNotFound(mint_address.to_string()).to_string());
+            return ToolOutcome::fail(
+                CoreError::AccountNotFound(mint_address.to_string()).to_string(),
+            );
         }
         Err(rpc_error) => return ToolOutcome::fail(rpc_error.to_string()),
     };

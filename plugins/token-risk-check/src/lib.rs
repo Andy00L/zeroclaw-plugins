@@ -87,9 +87,17 @@ mod component {
 
     fn emit(outcome: &crate::risk_check::ToolOutcome) {
         let (action, wit_outcome, message) = if outcome.success {
-            (PluginAction::Complete, PluginOutcome::Success, "risk report produced")
+            (
+                PluginAction::Complete,
+                PluginOutcome::Success,
+                "risk report produced",
+            )
         } else {
-            (PluginAction::Fail, PluginOutcome::Failure, "risk check failed")
+            (
+                PluginAction::Fail,
+                PluginOutcome::Failure,
+                "risk check failed",
+            )
         };
         log_record(
             LogLevel::Info,

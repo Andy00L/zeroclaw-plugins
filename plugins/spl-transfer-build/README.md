@@ -48,6 +48,10 @@ state). Signing happens wherever the operator keeps their keys.
 | `nonce_account` | (unset) | Durable nonce account whose authority is `sender_wallet`. |
 | `override_risk_gate` | `false` | Set `"true"` to build despite RED mint findings (they still print). |
 
+Unknown keys refuse to run: the nightmare typo `allowed_recipient`
+(singular) produces a distinct config error naming the key instead of
+silently disabling the allowlist (fail closed, tested).
+
 ## Worked example
 
 Model call:
@@ -154,14 +158,24 @@ only exports are `zeroclaw:plugin/plugin-info@0.1.0` and
 ## Install
 
 Copy this directory (the `.wasm` next to its `manifest.toml`) into your
-configured plugins dir, enable plugins, and set the config section stored
-under this plugin's name (`sender_wallet`, `allowed_recipients`, and
-optionally `tokens`, `rpc_url`, `nonce_account`); see the ZeroClaw plugin
-docs for the config command syntax on your install.
+configured plugins dir, then enable plugins and add the entry (exact shape
+per `PluginEntryConfig` in zeroclaw-config; note issue #8636: the first
+write for a fresh plugin currently needs the entry added to the config file
+by hand):
 
 ```toml
 [plugins]
 enabled = true
+
+[[plugins.entries]]
+name = "spl-transfer-build"
+
+[plugins.entries.config]
+sender_wallet = "<your wallet>"
+allowed_recipients = "<recipient wallet 1>,<recipient wallet 2>"
+# tokens = "USDC=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v:6:500"
+# rpc_url = "https://your-rpc.example"
+# nonce_account = "<durable nonce account owned by sender_wallet>"
 ```
 
 Run the agent with a build that includes a compiler backend, e.g.

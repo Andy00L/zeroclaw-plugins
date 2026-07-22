@@ -164,7 +164,10 @@ fn an_unlisted_recipient_is_refused_before_any_rpc_call() {
         }),
     );
     assert!(!outcome.success);
-    assert!(outcome.error.unwrap().contains("not on the operator's allowlist"));
+    assert!(outcome
+        .error
+        .unwrap()
+        .contains("not on the operator's allowlist"));
     assert!(outcome.output.is_empty());
     assert_eq!(rpc_call_count, 0);
 }
@@ -181,7 +184,10 @@ fn without_an_allowlist_or_sender_nothing_is_ever_built() {
         }),
     );
     assert!(!outcome.success);
-    assert!(outcome.error.unwrap().contains("no recipient allowlist configured"));
+    assert!(outcome
+        .error
+        .unwrap()
+        .contains("no recipient allowlist configured"));
 
     let transport = MockTransport::from_values(vec![]);
     let (outcome, _) = run(
@@ -209,7 +215,10 @@ fn amounts_above_the_per_call_cap_are_refused_before_any_rpc_call() {
     );
     assert!(!outcome.success);
     let error_message = outcome.error.unwrap();
-    assert!(error_message.contains("exceeds the per-call cap of 100 USDC"), "got: {error_message}");
+    assert!(
+        error_message.contains("exceeds the per-call cap of 100 USDC"),
+        "got: {error_message}"
+    );
     assert_eq!(rpc_call_count, 0);
 }
 
@@ -233,8 +242,7 @@ fn a_smuggled_sender_argument_is_rejected_loudly() {
 #[test]
 fn misconfigured_decimals_are_caught_against_the_chain() {
     let mut config = base_config();
-    config["tokens"] =
-        json!("USDC=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v:5:100");
+    config["tokens"] = json!("USDC=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v:5:100");
     let transport = MockTransport::from_json_texts(&[MINT_USDC_FIXTURE]);
     let (outcome, _) = run(
         transport,
@@ -250,8 +258,7 @@ fn misconfigured_decimals_are_caught_against_the_chain() {
 #[test]
 fn the_risk_gate_refuses_dangerous_mints_unless_overridden() {
     let mut config = base_config();
-    config["tokens"] =
-        json!("PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:6:100");
+    config["tokens"] = json!("PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:6:100");
 
     let transport = MockTransport::from_json_texts(&[MINT_PYUSD_FIXTURE]);
     let (outcome, rpc_call_count) = run(
@@ -263,7 +270,10 @@ fn the_risk_gate_refuses_dangerous_mints_unless_overridden() {
     );
     assert!(!outcome.success);
     let error_message = outcome.error.unwrap();
-    assert!(error_message.contains("risk gate refused"), "got: {error_message}");
+    assert!(
+        error_message.contains("risk gate refused"),
+        "got: {error_message}"
+    );
     assert!(error_message.contains("permanent delegate"));
     assert_eq!(rpc_call_count, 1);
 
@@ -340,10 +350,7 @@ fn a_nonce_owned_by_someone_else_is_refused() {
         json!({ "recipient": RECIPIENT_WALLET, "amount": "5", "__config": config }),
     );
     assert!(!outcome.success);
-    assert!(outcome
-        .error
-        .unwrap()
-        .contains("nonce account authority"));
+    assert!(outcome.error.unwrap().contains("nonce account authority"));
 }
 
 #[test]
@@ -368,7 +375,10 @@ fn unknown_tokens_fail_closed() {
         }),
     );
     assert!(!outcome.success);
-    assert!(outcome.error.unwrap().contains("'WEIRDCOIN' is not configured"));
+    assert!(outcome
+        .error
+        .unwrap()
+        .contains("'WEIRDCOIN' is not configured"));
     assert_eq!(rpc_call_count, 0);
 }
 
@@ -394,4 +404,31 @@ fn prompt_injection_transcript_the_readme_documents() {
     let error_message = outcome.error.unwrap();
     // The allowlist refusal fires first; the cap would refuse independently.
     assert!(error_message.contains("not on the operator's allowlist"));
+}
+
+#[test]
+fn a_typoed_allowlist_key_refuses_instead_of_disabling_the_allowlist() {
+    // The nightmare typo: "allowed_recipient" (singular). Silently ignoring
+    // it would leave the allowlist empty and everything refused for the
+    // wrong reason, or worse under future defaults. It must be named.
+    let transport = MockTransport::from_values(vec![]);
+    let (outcome, rpc_call_count) = run(
+        transport,
+        json!({
+            "recipient": RECIPIENT_WALLET,
+            "amount": "5",
+            "__config": {
+                "sender_wallet": SENDER_WALLET,
+                "allowed_recipient": RECIPIENT_WALLET
+            }
+        }),
+    );
+    assert!(!outcome.success);
+    let error_message = outcome.error.unwrap();
+    assert!(
+        error_message.contains("unknown key(s) allowed_recipient"),
+        "got: {error_message}"
+    );
+    assert!(error_message.contains("accepted keys:"));
+    assert_eq!(rpc_call_count, 0);
 }

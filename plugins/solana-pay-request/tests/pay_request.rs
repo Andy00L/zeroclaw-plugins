@@ -33,12 +33,18 @@ fn a_usdc_charge_produces_the_expected_url_and_summary() {
         "__config": operator_config()
     }));
     assert!(outcome.success, "got: {outcome:?}");
-    assert!(outcome.output.contains(&format!(
-        "Pay URL: solana:{OPERATOR_WALLET}?amount=25&spl-token={USDC_MINT}\
+    assert!(
+        outcome.output.contains(&format!(
+            "Pay URL: solana:{OPERATOR_WALLET}?amount=25&spl-token={USDC_MINT}\
          &reference={FIXED_REFERENCE}&label=Table%204&memo=order%23412"
-    )), "got: {}", outcome.output);
+        )),
+        "got: {}",
+        outcome.output
+    );
     assert!(outcome.output.contains("Amount: 25 USDC"));
-    assert!(outcome.output.contains(&format!("Reference: {FIXED_REFERENCE}")));
+    assert!(outcome
+        .output
+        .contains(&format!("Reference: {FIXED_REFERENCE}")));
 }
 
 #[test]
@@ -75,7 +81,10 @@ fn the_model_cannot_supply_a_recipient_argument() {
     }));
     assert!(!outcome.success);
     let error_message = outcome.error.unwrap();
-    assert!(error_message.contains("invalid arguments"), "got: {error_message}");
+    assert!(
+        error_message.contains("invalid arguments"),
+        "got: {error_message}"
+    );
     assert!(error_message.contains("recipient"), "got: {error_message}");
 }
 
@@ -114,17 +123,32 @@ fn operators_can_extend_the_token_map() {
 fn broken_token_config_entries_fail_with_distinct_messages() {
     for (broken_tokens_value, expected_fragment) in [
         ("PYUSD", "must look like SYMBOL=MINT:DECIMALS"),
-        ("PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo", "missing ':DECIMALS'"),
+        (
+            "PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+            "missing ':DECIMALS'",
+        ),
         ("PYUSD=notbase58:6", "not a valid address"),
-        ("PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:abc", "not a number"),
-        ("PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:12", "maximum of 9"),
-        ("=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:6", "empty symbol"),
+        (
+            "PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:abc",
+            "not a number",
+        ),
+        (
+            "PYUSD=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:12",
+            "maximum of 9",
+        ),
+        (
+            "=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:6",
+            "empty symbol",
+        ),
     ] {
         let outcome = run(json!({
             "amount": "1",
             "__config": { "recipient": OPERATOR_WALLET, "tokens": broken_tokens_value }
         }));
-        assert!(!outcome.success, "tokens '{broken_tokens_value}' should fail");
+        assert!(
+            !outcome.success,
+            "tokens '{broken_tokens_value}' should fail"
+        );
         let error_message = outcome.error.unwrap();
         assert!(
             error_message.contains(expected_fragment),
@@ -147,7 +171,10 @@ fn amounts_are_validated_against_the_tokens_decimals() {
             "amount": zero_or_bad_amount,
             "__config": operator_config()
         }));
-        assert!(!outcome.success, "amount '{zero_or_bad_amount}' should fail");
+        assert!(
+            !outcome.success,
+            "amount '{zero_or_bad_amount}' should fail"
+        );
     }
 }
 
@@ -180,4 +207,19 @@ fn an_invalid_configured_recipient_is_a_config_error() {
     }));
     assert!(!outcome.success);
     assert!(outcome.error.unwrap().contains("config error: recipient"));
+}
+
+#[test]
+fn a_typoed_config_key_refuses_to_run() {
+    let outcome = run(json!({
+        "amount": "1",
+        "__config": { "recipient": OPERATOR_WALLET, "recipiend_backup": "typo" }
+    }));
+    assert!(!outcome.success);
+    let error_message = outcome.error.unwrap();
+    assert!(
+        error_message.contains("unknown key(s) recipiend_backup"),
+        "got: {error_message}"
+    );
+    assert!(error_message.contains("accepted keys: recipient, tokens"));
 }

@@ -34,6 +34,10 @@ URL with an embedded key, read from the operator's config section.
 |---|---|---|
 | `rpc_url` | `https://api.mainnet-beta.solana.com` | JSON-RPC endpoint. Set your own; the public one rate-limits hard. |
 
+Unknown keys refuse to run: a typo like `rpc_uri` produces a distinct
+config error naming the key instead of silently using the default
+(fail closed, tested).
+
 ## Worked example
 
 Model call:
@@ -134,13 +138,20 @@ only exports are `zeroclaw:plugin/plugin-info@0.1.0` and
 ## Install
 
 Copy this directory (the `.wasm` next to its `manifest.toml`) into your
-configured plugins dir, enable plugins, and set the config section stored
-under this plugin's name (`rpc_url`); see the ZeroClaw plugin docs for the
-config command syntax on your install.
+configured plugins dir, then enable plugins and add the entry (exact shape
+per `PluginEntryConfig` in zeroclaw-config; note issue #8636: the first
+write for a fresh plugin currently needs the entry added to the config file
+by hand):
 
 ```toml
 [plugins]
 enabled = true
+
+[[plugins.entries]]
+name = "token-risk-check"
+
+[plugins.entries.config]
+rpc_url = "https://your-rpc.example"
 ```
 
 Run the agent with a build that includes a compiler backend, e.g.
