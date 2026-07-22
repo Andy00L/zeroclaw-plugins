@@ -79,11 +79,33 @@ report sizes are asserted in tests: token-risk-check under 1,600 chars for
 the extension-heavy PYUSD case, payment-watch under 1,000 chars for a
 settled invoice with all notes present.
 
+## Upstream gate, run exactly as upstream CI runs it
+
+The repository's own `tools/ci/validate_components.sh` (isolated snapshot
+per plugin, `--locked`, clippy `-D warnings` on both targets, release
+component build) on 2026-07-22, with `solana-wasip2-core 0.1.0` resolved
+from crates.io (https://crates.io/crates/solana-wasip2-core):
+
+```
+token-risk-check:   test_rc=0 tests_passed=10 clippy_rc=0 wasm_clippy_rc=0 build_rc=0 artifact_bytes=368979
+solana-pay-request: test_rc=0 tests_passed=11 clippy_rc=0 wasm_clippy_rc=0 build_rc=0 artifact_bytes=221874
+spl-transfer-build: test_rc=0 tests_passed=13 clippy_rc=0 wasm_clippy_rc=0 build_rc=0 artifact_bytes=490408
+payment-watch:      test_rc=0 tests_passed=12 clippy_rc=0 wasm_clippy_rc=0 build_rc=0 artifact_bytes=390571
+```
+
+Context that makes these rows non-trivial: the gate snapshots only
+`plugins/<name>` and `wit/v0`, so an in-repo path dependency on a shared
+core fails with `test_rc=125` (we verified this empirically before
+publishing). Consuming the core from crates.io is what makes a shared-core
+suite pass this gate at all.
+
+The complete upstream workflow ("Validate plugin repository": fmt,
+registry contract, WIT drift, component matrix over the full plugin sweep,
+package dry run, required gate) also ran green end to end on this branch:
+https://github.com/Andy00L/zeroclaw-plugins/actions/runs/29884880566
+
 ## In progress (not yet evidence)
 
 Planned artifacts tracked in PUSH_FURTHER.md, listed here so nothing reads
-as more than it is: the upstream CI gate run (blocked on publishing
-`solana-wasip2-core` to crates.io; the gate's snapshot cannot see the path
-dependency, verified empirically with `test_rc=125`), a live devnet
-durable-nonce delayed-signing run, and the in-host Telegram approval-gate
-transcript.
+as more than it is: a live devnet durable-nonce delayed-signing run, and
+the in-host Telegram approval-gate transcript.
