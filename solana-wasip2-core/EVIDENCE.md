@@ -104,8 +104,56 @@ registry contract, WIT drift, component matrix over the full plugin sweep,
 package dry run, required gate) also ran green end to end on this branch:
 https://github.com/Andy00L/zeroclaw-plugins/actions/runs/29884880566
 
+## Live devnet run: the durable-nonce A/B, and the loop closing on itself
+
+Run on 2026-07-22 against `https://api.devnet.solana.com`, with throwaway
+devnet keys used only by host-side dev signing tooling (the plugins never
+see a key; they emitted unsigned base64).
+
+Setup (all on chain, all inspectable):
+
+- Sender wallet `J77uvNWcs5bPn6TbspvKsajFfdgYvsfB6PtRhs8ngZZz`, recipient
+  `5eJZbddhbcb8QKwRc8C5yofe1cV1vyr9x29dMPULvxrj`.
+- Durable nonce account
+  [`A5nHMFLBBwFGiaHY6wjQ4sdmcAnXqAT7YBzMo76Su5TZ`](https://explorer.solana.com/address/A5nHMFLBBwFGiaHY6wjQ4sdmcAnXqAT7YBzMo76Su5TZ?cluster=devnet),
+  initial nonce blockhash `7VY5aiX2scwt24eMKqE4St9PbEbmaUo2zLHf9zELhgUP`.
+- Test mint
+  [`FeU3KQR1pxg5jRG8sDB56xx8YdPKzJaYNBFeXBE55MYp`](https://explorer.solana.com/address/FeU3KQR1pxg5jRG8sDB56xx8YdPKzJaYNBFeXBE55MYp?cluster=devnet)
+  ("DEMO", 6 decimals), 1000 minted to the sender.
+
+The A/B: `spl_transfer_build`'s core, running against live devnet state
+(real mint inspection, real ATA existence probes, real nonce fetch), built
+two unsigned 5-DEMO transfers to the allowlisted recipient at the same
+moment: one with a recent blockhash, one with the durable nonce. Both were
+signed offline and submitted 292 seconds later:
+
+- Recent-blockhash control, REFUSED by the network:
+  `{"code":-32002,"message":"Transaction simulation failed: Blockhash not
+  found","data":{"err":"BlockhashNotFound",...}}`. This is the structural
+  problem the bounty brief names for approval-gated agent payments.
+- Durable-nonce transaction, same age, ACCEPTED and finalized:
+  [`JyBLEPyLrWhuYAcqvwKasK4WCKMuwNCTSWM3kcNwwkwSsGUantDZsFaf2eV2P9UqDpPjeHHHvxXNxaKpe1LFf81`](https://explorer.solana.com/tx/JyBLEPyLrWhuYAcqvwKasK4WCKMuwNCTSWM3kcNwwkwSsGUantDZsFaf2eV2P9UqDpPjeHHHvxXNxaKpe1LFf81?cluster=devnet)
+  (slot 477989374, err null). The transaction carried the
+  create-ATA-idempotent, memo, and transfer-checked instructions the
+  plugin built; the recipient's balance moved 0 to 5 DEMO; and the nonce
+  advanced to `DWHFfGRutFaM9sCgCrQTqLvRYA43yEKtEysJbLzBXhP2`, so the
+  signed bytes can never replay.
+
+Then the suite verified itself: `payment_watch`'s core, pointed at the
+same devnet RPC, reported the settlement independently:
+
+```
+Payment status: PAID
+Expected: 5 DEMO to 5eJZbddhbcb8QKwRc8C5yofe1cV1vyr9x29dMPULvxrj
+Received: 5 DEMO across 1 settling transaction(s)
+  JyBLEPyLrWhuYAcqvwKasK4WCKMuwNCTSWM3kcNwwkwSsGUantDZsFaf2eV2P9UqDpPjeHHHvxXNxaKpe1LFf81 (slot 477989374): +5 DEMO
+```
+
+Built by one plugin, finalized by the network, verified by another plugin:
+the loop, closed, on a public cluster anyone can inspect.
+
 ## In progress (not yet evidence)
 
 Planned artifacts tracked in PUSH_FURTHER.md, listed here so nothing reads
-as more than it is: a live devnet durable-nonce delayed-signing run, and
-the in-host Telegram approval-gate transcript.
+as more than it is: the in-host Telegram approval-gate transcript and the
+3-minute demo video.
