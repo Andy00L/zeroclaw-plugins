@@ -1,0 +1,18 @@
+# Cron-triggered settlement watch. Copy this directory to
+# <workspace>/sops/payment-watch/ and adjust the cron expression.
+# Syntax per docs/book/src/sop/syntax.md; the cron trigger's single field is
+# `expression` (sourceRef: zeroclaw crates/zeroclaw-runtime/src/sop/
+# trigger_registry.rs). Cron is a headless trigger: a tick that cannot admit
+# is dropped with a loud log and the next tick recovers, which is exactly
+# the behavior a poller wants, so overlapping ticks coalesce below.
+
+[sop]
+name = "payment-watch"
+description = "Poll open Solana Pay invoices until settlement is verified"
+version = "0.1.0"
+max_concurrent = 1
+admission_policy = "coalesce"
+
+[[triggers]]
+type = "cron"
+expression = "*/2 * * * *"

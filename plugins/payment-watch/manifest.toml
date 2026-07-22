@@ -1,0 +1,11 @@
+name = "payment-watch"
+version = "0.1.0"
+description = "Verify Solana Pay settlement by recipient balance delta, not reference touch; PAID/PARTIAL/PENDING with on-chain evidence, cron-SOP friendly"
+author = "Andy00L"
+wasm_path = "payment_watch.wasm"
+capabilities = ["tool"]
+# http_client: JSON-RPC reads (signatures for the reference address and the
+# transactions themselves). config_read: the recipient wallet whose balance
+# proves settlement, plus rpc_url and extra token symbols. The plugin holds
+# no key and can move nothing.
+permissions = ["http_client", "config_read"]

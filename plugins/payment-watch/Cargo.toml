@@ -1,0 +1,27 @@
+[package]
+name = "payment-watch"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "ZeroClaw WIT tool plugin: verify Solana Pay settlement honestly by recipient balance delta, not reference touch. Cron-SOP friendly with a stateless cursor. Read-only (custody tier T0)."
+publish = false
+
+# cdylib for the wasm component; rlib so the pure watch core is testable on
+# the host with a plain `cargo test`.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wit-bindgen = "0.46"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+solana-wasip2-core = { path = "../../solana-wasip2-core" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+codegen-units = 1
+
+# Standalone crate: built for wasm32-wasip2, not part of the host workspace.
+[workspace]
