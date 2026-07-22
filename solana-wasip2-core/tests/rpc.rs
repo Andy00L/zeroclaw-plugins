@@ -134,6 +134,89 @@ fn largest_accounts_parse_amounts_as_integers() {
 }
 
 #[test]
+fn an_error_object_wins_even_when_a_result_is_also_present() {
+    // JSON-RPC forbids both fields at once, but a broken proxy could send
+    // both; trusting the result while an error stands would act on data the
+    // node itself disowned.
+    let contradictory_response = json!({
+        "jsonrpc": "2.0", "id": 1,
+        "error": { "code": -32000, "message": "node is behind" },
+        "result": { "value": { "blockhash": "D277KYCrJsSujJyqKpwwaGW2v8QRFtYnJ3qAC39SZ1tF" } }
+    });
+    let transport = MockTransport::with_responses(vec![Ok(contradictory_response)]);
+    let client = RpcClient::new(transport, RPC_URL);
+    assert!(matches!(
+        client.get_latest_blockhash(),
+        Err(CoreError::RpcError { code: -32000, .. })
+    ));
+}
+
+#[test]
+fn a_nonstandard_error_shape_still_maps_to_rpc_error() {
+    // An error field that is a bare string instead of the documented object:
+    // still an error, with placeholder code and message.
+    let transport = MockTransport::with_responses(vec![Ok(json!({ "jsonrpc": "2.0", "id": 1,
+            "error": "boom" }))]);
+    let client = RpcClient::new(transport, RPC_URL);
+    match client.get_latest_blockhash() {
+        Err(CoreError::RpcError { code, message }) => {
+            assert_eq!(code, 0);
+            assert_eq!(message, "(no message)");
+        }
+        other => panic!("expected RpcError, got {other:?}"),
+    }
+}
+
+#[test]
+fn an_unparseable_blockhash_is_a_distinct_error() {
+    let transport = MockTransport::with_responses(vec![Ok(json!({
+        "jsonrpc": "2.0", "id": 1,
+        "result": { "context": { "slot": 1 },
+                    "value": { "blockhash": "not-base58!!", "lastValidBlockHeight": 1 } }
+    }))]);
+    let client = RpcClient::new(transport, RPC_URL);
+    assert!(matches!(
+        client.get_latest_blockhash(),
+        Err(CoreError::InvalidBlockhash(_))
+    ));
+}
+
+#[test]
+fn account_data_the_node_could_not_parse_is_malformed_not_empty() {
+    // jsonParsed falls back to ["<base64>", "base64"] for programs the node
+    // has no parser for; get_parsed_account_info must refuse rather than
+    // return something half-shaped.
+    let transport = MockTransport::with_responses(vec![Ok(json!({
+        "jsonrpc": "2.0", "id": 1,
+        "result": { "context": { "slot": 1 },
+                    "value": { "owner": "SomeProgram1111111111111111111111111111111",
+                               "lamports": 1,
+                               "data": ["aGVsbG8=", "base64"] } }
+    }))]);
+    let client = RpcClient::new(transport, RPC_URL);
+    let usdc_mint = parse_pubkey(USDC_MINT).unwrap();
+    match client.get_parsed_account_info(&usdc_mint) {
+        Err(CoreError::MalformedResponse(message)) => {
+            assert!(message.contains("not jsonParsed"), "got: {message}");
+        }
+        other => panic!("expected MalformedResponse, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_non_array_signatures_result_is_malformed() {
+    let transport = MockTransport::with_responses(vec![Ok(json!({
+        "jsonrpc": "2.0", "id": 1, "result": { "unexpected": "object" }
+    }))]);
+    let client = RpcClient::new(transport, RPC_URL);
+    let address = parse_pubkey(USDC_MINT).unwrap();
+    assert!(matches!(
+        client.get_signatures_for_address(&address, None, 5),
+        Err(CoreError::MalformedResponse(_))
+    ));
+}
+
+#[test]
 fn a_largest_accounts_entry_without_an_amount_is_malformed() {
     let broken_response = json!({
         "jsonrpc": "2.0", "id": 1,

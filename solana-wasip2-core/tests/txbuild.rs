@@ -183,6 +183,39 @@ fn skipping_ata_creation_and_memo_yields_a_single_instruction() {
 }
 
 #[test]
+fn advance_nonce_stays_first_when_ata_creation_is_also_needed() {
+    // The durable-nonce contract requires AdvanceNonceAccount as instruction
+    // zero; a prepended create-ATA must never displace it.
+    let nonce_account: Pubkey = "4nEWKw6W8uXmF5u9qyDTziARAZdC4YNxFnhgpzsJVDBE"
+        .parse()
+        .unwrap();
+    let mut spec = usdc_transfer_spec();
+    spec.memo_text = None;
+    let built = build_spl_transfer_transaction(
+        &spec,
+        &TransactionLifetime::DurableNonce {
+            nonce_account,
+            nonce_authority: SENDER_WALLET.parse().unwrap(),
+            nonce_value: example_blockhash(),
+        },
+    )
+    .unwrap();
+    let transaction = decode_transaction(&built.transaction.unsigned_transaction_base64);
+    let compiled_instructions = transaction.message.instructions();
+    assert_eq!(compiled_instructions.len(), 3);
+    let static_keys = transaction.message.static_account_keys();
+    let program_id_of = |instruction_index: usize| {
+        static_keys[compiled_instructions[instruction_index].program_id_index as usize]
+    };
+    assert_eq!(program_id_of(0), solana_sdk_ids::system_program::id());
+    assert_eq!(
+        program_id_of(1),
+        spl_associated_token_account_interface::program::id()
+    );
+    assert_eq!(program_id_of(2), token_program_id());
+}
+
+#[test]
 fn the_hand_rolled_transfer_checked_matches_the_interface_crates_builder() {
     // The core hand-rolls TransferChecked so it can target Token-2022 (the
     // classic interface builder rejects that program id). This pins the

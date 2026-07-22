@@ -46,6 +46,11 @@ const DEFAULT_USDC_CAP_UI: &str = "100";
 /// Longest memo accepted, in characters, before sanitization.
 const MAX_MEMO_CHARS: usize = 120;
 
+/// Length bound for unrecognized extension labels echoed into a refusal.
+/// Labels come from the RPC's jsonParsed output, which the operator's node
+/// controls; bounding them keeps a hostile node from flooding the message.
+const MAX_EXTENSION_LABEL_CHARS: usize = 80;
+
 /// One transferable token: mint, precision, and a hard per-call cap.
 #[derive(Debug, Clone)]
 pub struct TransferTokenEntry {
@@ -273,6 +278,19 @@ fn risk_gate_findings(facts: &MintFacts) -> Vec<String> {
     }
     if facts.non_transferable {
         findings.push("the token is non-transferable".to_string());
+    }
+    // Fail closed on extensions this tool cannot judge: a future or unknown
+    // extension may change transfer semantics (fees, hooks, seizure) in ways
+    // the checks above never see.
+    if !facts.other_extensions.is_empty() {
+        let extension_labels = sanitize_untrusted_text(
+            &facts.other_extensions.join(", "),
+            MAX_EXTENSION_LABEL_CHARS,
+        );
+        findings.push(format!(
+            "the mint carries extension(s) this tool does not recognize ({extension_labels}); \
+             their transfer semantics cannot be verified"
+        ));
     }
     findings
 }

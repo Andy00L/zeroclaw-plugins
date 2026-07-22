@@ -147,6 +147,96 @@ fn a_bare_mint_with_no_authorities_scores_green() {
 }
 
 #[test]
+fn out_of_range_decimals_are_malformed_not_truncated() {
+    // A mint's decimals is a u8 on chain; a corrupt response claiming 300
+    // must be refused, never cast down to a wrong precision.
+    let corrupt_mint = ParsedAccountInfo {
+        owner_program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
+        parsed_program_label: "spl-token".to_string(),
+        parsed_json: json!({
+            "type": "mint",
+            "info": { "decimals": 300, "supply": "1000",
+                      "mintAuthority": null, "freezeAuthority": null }
+        }),
+    };
+    assert!(matches!(
+        parse_mint_facts(USDC_MINT, &corrupt_mint),
+        Err(CoreError::MalformedResponse(_))
+    ));
+}
+
+#[test]
+fn a_numeric_supply_is_malformed() {
+    // The RPC documents supply as a string; a numeric value would lose
+    // precision above 2^53 and must be refused.
+    let corrupt_mint = ParsedAccountInfo {
+        owner_program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA".to_string(),
+        parsed_program_label: "spl-token".to_string(),
+        parsed_json: json!({
+            "type": "mint",
+            "info": { "decimals": 6, "supply": 1000,
+                      "mintAuthority": null, "freezeAuthority": null }
+        }),
+    };
+    assert!(matches!(
+        parse_mint_facts(USDC_MINT, &corrupt_mint),
+        Err(CoreError::MalformedResponse(_))
+    ));
+}
+
+#[test]
+fn an_unreadable_transfer_fee_config_defaults_to_worst_case() {
+    // A transferFeeConfig whose fee fields cannot be read scores as the
+    // maximum possible fee: the conservative direction for a gate that also
+    // guards transfers.
+    let opaque_fee_mint = ParsedAccountInfo {
+        owner_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb".to_string(),
+        parsed_program_label: "spl-token-2022".to_string(),
+        parsed_json: json!({
+            "type": "mint",
+            "info": { "decimals": 6, "supply": "1000",
+                      "mintAuthority": null, "freezeAuthority": null,
+                      "extensions": [ { "extension": "transferFeeConfig", "state": {} } ] }
+        }),
+    };
+    let facts = parse_mint_facts(USDC_MINT, &opaque_fee_mint).unwrap();
+    let transfer_fee = facts.transfer_fee.as_ref().expect("fee facts present");
+    assert_eq!(transfer_fee.basis_points, u16::MAX);
+    assert_eq!(transfer_fee.maximum_fee_base_units, u64::MAX);
+    let assessment = assess_mint_risk(&facts, None);
+    assert_eq!(assessment.level, RiskLevel::Amber);
+    assert!(assessment
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("65535 basis points")));
+}
+
+#[test]
+fn unknown_extensions_are_reported_and_kept_in_the_facts() {
+    // The core reports unknown extensions as a note without changing the
+    // level; the money-touching plugin (spl-transfer-build) fails closed on
+    // `other_extensions` in its own risk gate.
+    let novel_extension_mint = ParsedAccountInfo {
+        owner_program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb".to_string(),
+        parsed_program_label: "spl-token-2022".to_string(),
+        parsed_json: json!({
+            "type": "mint",
+            "info": { "decimals": 6, "supply": "1000",
+                      "mintAuthority": null, "freezeAuthority": null,
+                      "extensions": [ { "extension": "quantumVault", "state": {} } ] }
+        }),
+    };
+    let facts = parse_mint_facts(USDC_MINT, &novel_extension_mint).unwrap();
+    assert_eq!(facts.other_extensions, vec!["quantumVault".to_string()]);
+    let assessment = assess_mint_risk(&facts, None);
+    assert_eq!(assessment.level, RiskLevel::Green);
+    assert!(assessment
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("unrecognized extensions present: quantumVault")));
+}
+
+#[test]
 fn holder_concentration_uses_integer_basis_points() {
     let largest_accounts = vec![
         LargestTokenAccount {

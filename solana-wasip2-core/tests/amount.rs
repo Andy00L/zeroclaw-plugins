@@ -71,6 +71,50 @@ fn rejects_zero_amounts() {
 }
 
 #[test]
+fn zero_decimal_mints_reject_any_fraction_digit() {
+    // NFT-style mints declare 0 decimals: "1." is a whole number, "1.5" has
+    // one fraction digit too many.
+    assert_eq!(parse_amount_to_base_units("1.", 0).unwrap(), 1);
+    match parse_amount_to_base_units("1.5", 0) {
+        Err(CoreError::InvalidAmount(message)) => {
+            assert!(message.contains("1 fraction digits"), "got: {message}");
+        }
+        other => panic!("expected InvalidAmount, got {other:?}"),
+    }
+}
+
+#[test]
+fn the_u64_boundary_holds_with_fractional_notation() {
+    // u64::MAX expressed as a 6-decimal user amount parses exactly; one base
+    // unit more is refused, never wrapped.
+    assert_eq!(
+        parse_amount_to_base_units("18446744073709.551615", 6).unwrap(),
+        u64::MAX
+    );
+    match parse_amount_to_base_units("18446744073709.551616", 6) {
+        Err(CoreError::InvalidAmount(message)) => {
+            assert!(message.contains("64-bit"), "got: {message}");
+        }
+        other => panic!("expected InvalidAmount, got {other:?}"),
+    }
+}
+
+#[test]
+fn signs_and_non_ascii_digits_are_rejected() {
+    // Unicode digits (Arabic-Indic five below) parse under some locales'
+    // conventions; money input accepts ASCII only.
+    for rejected_input in ["+5", "\u{0665}", "1\u{0665}", "５"] {
+        assert!(
+            matches!(
+                parse_amount_to_base_units(rejected_input, 6),
+                Err(CoreError::InvalidAmount(_))
+            ),
+            "input '{rejected_input}' should be rejected"
+        );
+    }
+}
+
+#[test]
 fn formats_base_units_canonically() {
     assert_eq!(format_base_units(25_000_000, 6), "25");
     assert_eq!(format_base_units(500_000, 6), "0.5");

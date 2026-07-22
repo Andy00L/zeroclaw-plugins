@@ -9,6 +9,7 @@ mod common;
 use common::MockTransport;
 use serde_json::json;
 use solana_wasip2_core::addresses::parse_pubkey;
+use solana_wasip2_core::error::CoreError;
 use solana_wasip2_core::payment_verify::{
     compute_recipient_lamport_delta, compute_recipient_token_delta, transaction_failed,
 };
@@ -117,6 +118,77 @@ fn lamport_deltas_read_the_balance_arrays() {
         .unwrap(),
         0
     );
+}
+
+#[test]
+fn multiple_token_accounts_for_one_owner_are_summed_per_side() {
+    // An owner can hold the same mint in several token accounts inside one
+    // transaction; the delta is the sum over all of them, per side.
+    let transaction = json!({
+        "meta": {
+            "err": null,
+            "preTokenBalances": [
+                { "owner": "wallet", "mint": "mint", "uiTokenAmount": { "amount": "100" } },
+                { "owner": "wallet", "mint": "mint", "uiTokenAmount": { "amount": "50" } }
+            ],
+            "postTokenBalances": [
+                { "owner": "wallet", "mint": "mint", "uiTokenAmount": { "amount": "200" } },
+                { "owner": "wallet", "mint": "mint", "uiTokenAmount": { "amount": "75" } }
+            ]
+        }
+    });
+    assert_eq!(
+        compute_recipient_token_delta(&transaction, "wallet", "mint").unwrap(),
+        125
+    );
+}
+
+#[test]
+fn plain_string_account_keys_are_supported_for_lamport_deltas() {
+    // json (non-parsed) encoding lists accountKeys as bare strings instead
+    // of {pubkey} objects; both shapes must resolve the balance index.
+    let transaction = json!({
+        "transaction": { "message": { "accountKeys": ["feePayer111", "recipient111"] } },
+        "meta": { "err": null, "preBalances": [10_000, 100], "postBalances": [4_000, 250] }
+    });
+    assert_eq!(
+        compute_recipient_lamport_delta(&transaction, "recipient111").unwrap(),
+        150
+    );
+}
+
+#[test]
+fn a_balance_array_shorter_than_the_key_index_is_malformed() {
+    let transaction = json!({
+        "transaction": { "message": { "accountKeys": ["feePayer111", "recipient111"] } },
+        "meta": { "err": null, "preBalances": [10_000, 100], "postBalances": [4_000] }
+    });
+    match compute_recipient_lamport_delta(&transaction, "recipient111") {
+        Err(CoreError::MalformedResponse(message)) => {
+            assert!(message.contains("postBalances"), "got: {message}");
+        }
+        other => panic!("expected MalformedResponse, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_non_string_token_amount_is_malformed_not_zero() {
+    // uiTokenAmount.amount is specified as a string; a numeric value means
+    // the response is not what the RPC documentation promises, and treating
+    // it as zero would silently undercount a payment.
+    let transaction = json!({
+        "meta": {
+            "err": null,
+            "preTokenBalances": [],
+            "postTokenBalances": [
+                { "owner": "wallet", "mint": "mint", "uiTokenAmount": { "amount": 200 } }
+            ]
+        }
+    });
+    assert!(matches!(
+        compute_recipient_token_delta(&transaction, "wallet", "mint"),
+        Err(CoreError::MalformedResponse(_))
+    ));
 }
 
 #[test]

@@ -4,7 +4,7 @@ Solana primitives for WebAssembly components targeting `wasm32-wasip2`,
 where the standard Solana client stack does not link: no tokio, no reqwest,
 no ring, no sockets, only the host's `wasi:http`. This crate is the substrate
 the ZeroClaw Solana tool plugins in this repository build on, and it is
-usable by any other `tool-plugin` component. 56 host tests, zero network in
+usable by any other `tool-plugin` component. 80 host tests, zero network in
 tests, MIT. Every claim is reproducible with one command: `./prove.sh`
 (see [EVIDENCE.md](EVIDENCE.md)).
 
@@ -130,7 +130,7 @@ Prerequisites: Rust 1.96+ with the `wasm32-wasip2` target.
              # builds, and the cross-stack oracle vs @solana/web3.js
 ```
 
-Or piecewise: `cargo test` (56 host tests, no network, no wasm toolchain)
+Or piecewise: `cargo test` (80 host tests, no network, no wasm toolchain)
 and `cargo check --target wasm32-wasip2`. Test fixtures under
 `tests/fixtures/` are real mainnet RPC responses captured on 2026-07-21
 (USDC and PYUSD mints, a missing account, a real failed transaction, a

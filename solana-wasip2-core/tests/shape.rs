@@ -34,6 +34,28 @@ fn long_text_is_truncated_with_a_marker() {
 }
 
 #[test]
+fn ansi_escape_sequences_are_neutralized() {
+    // Terminal escape codes in an issuer-controlled name could recolor or
+    // overwrite the operator's screen; ESC is a control character and must
+    // never survive.
+    let hostile_name = "\u{1b}[2J\u{1b}[31mSAFE\u{1b}[0m token";
+    let sanitized = sanitize_untrusted_text(hostile_name, MAX_UNTRUSTED_TEXT_CHARS);
+    assert!(!sanitized.contains('\u{1b}'), "got: {sanitized:?}");
+    assert!(!sanitized.contains('\n'));
+}
+
+#[test]
+fn multibyte_truncation_cuts_on_character_boundaries() {
+    // 3-byte UTF-8 characters: truncation must count characters, not bytes,
+    // and never split a code point (which would panic or corrupt output).
+    let long_multibyte = "☕".repeat(200);
+    let sanitized = sanitize_untrusted_text(&long_multibyte, MAX_UNTRUSTED_TEXT_CHARS);
+    assert_eq!(sanitized.chars().count(), MAX_UNTRUSTED_TEXT_CHARS + 2);
+    assert!(sanitized.ends_with(".."));
+    assert!(sanitized.starts_with('☕'));
+}
+
+#[test]
 fn whitespace_runs_collapse_and_edges_trim() {
     assert_eq!(
         sanitize_untrusted_text("  a   b  \u{200B}c  ", MAX_UNTRUSTED_TEXT_CHARS),

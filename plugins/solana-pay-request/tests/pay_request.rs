@@ -200,6 +200,83 @@ fn hostile_text_fields_cannot_inject_url_parameters() {
 }
 
 #[test]
+fn token_symbols_tolerate_case_and_surrounding_whitespace() {
+    let outcome = run(json!({
+        "amount": "1",
+        "token": "  usdc  ",
+        "__config": operator_config()
+    }));
+    assert!(outcome.success, "got: {outcome:?}");
+    assert!(outcome.output.contains("Amount: 1 USDC"));
+}
+
+#[test]
+fn text_fields_that_sanitize_to_nothing_are_omitted() {
+    // A label of pure whitespace and control characters must not become an
+    // empty `label=` parameter in the URL.
+    let outcome = run(json!({
+        "amount": "1",
+        "label": "\n\t  \r",
+        "__config": operator_config()
+    }));
+    assert!(outcome.success);
+    assert!(
+        !outcome.output.contains("label="),
+        "got: {}",
+        outcome.output
+    );
+}
+
+#[test]
+fn long_labels_are_truncated_before_they_reach_the_url() {
+    let outcome = run(json!({
+        "amount": "1",
+        "label": "A".repeat(200),
+        "__config": operator_config()
+    }));
+    assert!(outcome.success);
+    // 64 characters survive plus the ".." truncation marker; dots are RFC
+    // 3986 unreserved so the marker stays literal in the URL.
+    let expected_label = format!("label={}..", "A".repeat(64));
+    assert!(
+        outcome.output.contains(&expected_label),
+        "got: {}",
+        outcome.output
+    );
+    assert!(!outcome.output.contains(&"A".repeat(65)));
+}
+
+#[test]
+fn a_numeric_amount_is_rejected_as_a_type_error() {
+    // The schema says string; a bare JSON number must fail loudly, not be
+    // coerced (float coercion is how rounding bugs enter money paths).
+    let outcome = run(json!({
+        "amount": 25,
+        "__config": operator_config()
+    }));
+    assert!(!outcome.success);
+    assert!(outcome.error.unwrap().contains("invalid arguments"));
+}
+
+#[test]
+fn operators_may_redefine_the_built_in_usdc_entry() {
+    // Config is operator-trusted: redefining USDC (for example to a devnet
+    // mint) is intentional and the last definition wins.
+    let outcome = run(json!({
+        "amount": "10",
+        "token": "USDC",
+        "__config": {
+            "recipient": OPERATOR_WALLET,
+            "tokens": "USDC=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo:6"
+        }
+    }));
+    assert!(outcome.success, "got: {outcome:?}");
+    assert!(outcome
+        .output
+        .contains("spl-token=2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo"));
+}
+
+#[test]
 fn an_invalid_configured_recipient_is_a_config_error() {
     let outcome = run(json!({
         "amount": "1",

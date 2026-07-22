@@ -154,6 +154,149 @@ fn a_reference_touch_without_value_is_called_out_not_counted() {
         .contains("a reference touch is not a payment"));
 }
 
+/// Synthesize a getSignaturesForAddress result with the given signatures,
+/// all successful, newest first (shape per
+/// https://solana.com/docs/rpc/http/getsignaturesforaddress).
+fn signatures_response(signatures: &[&str]) -> Value {
+    let entries: Vec<Value> = signatures
+        .iter()
+        .map(|signature| {
+            json!({ "signature": signature, "slot": 100, "err": null,
+                    "memo": null, "blockTime": 1_753_000_000 })
+        })
+        .collect();
+    json!({ "jsonrpc": "2.0", "id": 1, "result": entries })
+}
+
+#[test]
+fn sol_invoices_are_verified_by_lamport_delta() {
+    // Native SOL settlement reads preBalances/postBalances instead of token
+    // balances: the recipient below gains 2.5 SOL (2_500_000_000 lamports).
+    let sol_transfer = json!({
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+            "transaction": { "message": { "accountKeys": [
+                { "pubkey": "payer11111111111111111111111111111111111111" },
+                { "pubkey": RECEIVING_WALLET }
+            ] } },
+            "meta": { "err": null,
+                      "preBalances": [10_000_000_000u64, 1_000_000_000u64],
+                      "postBalances": [7_499_995_000u64, 3_500_000_000u64] }
+        }
+    });
+    let transport = MockTransport::from_values(vec![
+        signatures_response(&["solSig1111111111111111111111111111111111111111"]),
+        sol_transfer,
+    ]);
+    let outcome = run(
+        &transport,
+        json!({
+            "reference": REFERENCE, "amount": "2.5", "token": "SOL",
+            "__config": watch_config()
+        }),
+    );
+    assert!(outcome.success, "got: {outcome:?}");
+    assert!(outcome.output.starts_with("Payment status: PAID"));
+    assert!(outcome.output.contains("+2.5 SOL"));
+}
+
+#[test]
+fn all_settling_transactions_count_even_beyond_the_evidence_cap() {
+    // Four settling transactions, three evidence lines: the "across N" count
+    // must be the true 4, with a note that evidence shows only the first 3.
+    let four_signatures = signatures_response(&[
+        "watchSig111111111111111111111111111111111111111",
+        "watchSig222222222222222222222222222222222222222",
+        "watchSig333333333333333333333333333333333333333",
+        "watchSig444444444444444444444444444444444444444",
+    ]);
+    let transport = MockTransport::from_values(vec![
+        four_signatures,
+        fixture(TRANSACTION_FIXTURE),
+        fixture(TRANSACTION_FIXTURE),
+        fixture(TRANSACTION_FIXTURE),
+        fixture(TRANSACTION_FIXTURE),
+    ]);
+    // 4 x 1.999740 = 7.998960 USDC received.
+    let outcome = run(
+        &transport,
+        json!({ "reference": REFERENCE, "amount": "7.99896", "__config": watch_config() }),
+    );
+    assert!(outcome.success, "got: {outcome:?}");
+    assert!(outcome.output.starts_with("Payment status: PAID"));
+    assert!(outcome
+        .output
+        .contains("Received: 7.99896 USDC across 4 settling transaction(s)"));
+    let evidence_line_count = outcome
+        .output
+        .lines()
+        .filter(|output_line| output_line.starts_with("  "))
+        .count();
+    assert_eq!(evidence_line_count, 3);
+    assert!(outcome
+        .output
+        .contains("evidence shows the first 3 of 4 settling transactions"));
+}
+
+#[test]
+fn cursor_length_boundaries_are_enforced() {
+    // Valid signature lengths span 43 to 88 characters; both boundaries pass
+    // validation and both neighbors fail before any RPC call.
+    for (cursor_length, should_pass) in [(42usize, false), (43, true), (88, true), (89, false)] {
+        let boundary_cursor = "a".repeat(cursor_length);
+        let queued = if should_pass {
+            vec![json!({ "jsonrpc": "2.0", "id": 1, "result": [] })]
+        } else {
+            vec![]
+        };
+        let transport = MockTransport::from_values(queued);
+        let outcome = run(
+            &transport,
+            json!({
+                "reference": REFERENCE, "amount": "1",
+                "cursor": boundary_cursor,
+                "__config": watch_config()
+            }),
+        );
+        assert_eq!(
+            outcome.success, should_pass,
+            "cursor of length {cursor_length}: got {outcome:?}"
+        );
+        if !should_pass {
+            assert!(transport.recorded_requests.borrow().is_empty());
+        }
+    }
+}
+
+#[test]
+fn a_transaction_without_metadata_counts_zero_not_paid() {
+    // getTransaction can return a transaction whose meta is null (very old
+    // or pruned data); with no balance arrays there is no proof of value
+    // movement, so it must count zero.
+    let metadata_less_transaction = json!({
+        "jsonrpc": "2.0", "id": 1,
+        "result": {
+            "transaction": { "message": { "accountKeys": [
+                { "pubkey": RECEIVING_WALLET }
+            ] } },
+            "meta": null
+        }
+    });
+    let transport = MockTransport::from_values(vec![
+        signatures_response(&["oldSig11111111111111111111111111111111111111111"]),
+        metadata_less_transaction,
+    ]);
+    let outcome = run(
+        &transport,
+        json!({ "reference": REFERENCE, "amount": "1", "__config": watch_config() }),
+    );
+    assert!(outcome.success, "got: {outcome:?}");
+    assert!(outcome.output.starts_with("Payment status: PENDING"));
+    assert!(outcome
+        .output
+        .contains("a reference touch is not a payment"));
+}
+
 #[test]
 fn the_cursor_is_validated_and_forwarded() {
     let transport = MockTransport::from_values(vec![json!({

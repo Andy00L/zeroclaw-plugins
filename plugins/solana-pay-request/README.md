@@ -114,7 +114,7 @@ manifest.toml       # name, version, wasm_path, capabilities, permissions
 ## Build and test
 
 ```bash
-cargo test                                        # 10 host tests, no network
+cargo test                                        # 16 host tests, no network
 rustup target add wasm32-wasip2
 cargo build --target wasm32-wasip2 --release      # the component
 cp target/wasm32-wasip2/release/solana_pay_request.wasm solana_pay_request.wasm

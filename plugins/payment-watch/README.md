@@ -22,7 +22,9 @@ It implements the `tool-plugin` world from `wit/v0`, compiles to a
 - **PAID / PARTIAL / PENDING** with up to 3 evidence lines (signature,
   slot, amount), overpayment and skipped-failed notes, and an explicit
   "a reference touch is not a payment" note when transactions touched the
-  reference without moving value.
+  reference without moving value. The settling-transaction count is always
+  the true total; when more than 3 transactions settle, a note says the
+  evidence shows the first 3.
 - **Cron-SOP friendly.** Stateless by construction (the host runs each
   call in a fresh store): the cursor (newest seen signature) rides in the
   output and comes back as an argument. `examples/sop/` ships a
@@ -128,7 +130,7 @@ manifest.toml         # name, version, wasm_path, capabilities, permissions
 ## Build and test
 
 ```bash
-cargo test                                        # 12 host tests, no network
+cargo test                                        # 16 host tests, no network
 rustup target add wasm32-wasip2
 cargo build --target wasm32-wasip2 --release      # the component
 cp target/wasm32-wasip2/release/payment_watch.wasm payment_watch.wasm

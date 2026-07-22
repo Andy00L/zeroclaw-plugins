@@ -208,6 +208,7 @@ pub fn execute_payment_watch<Transport: JsonHttpTransport>(
     let recipient_text = recipient_wallet.to_string();
     let mint_text = token_entry.mint.map(|mint| mint.to_string());
     let mut total_received_base_units: u128 = 0;
+    let mut settling_transaction_count: usize = 0;
     let mut evidence_lines: Vec<String> = Vec::new();
     let mut skipped_failed_count: usize = 0;
     let mut unavailable_count: usize = 0;
@@ -239,6 +240,7 @@ pub fn execute_payment_watch<Transport: JsonHttpTransport>(
         };
         if recipient_delta > 0 {
             total_received_base_units += recipient_delta as u128;
+            settling_transaction_count += 1;
             if evidence_lines.len() < MAX_EVIDENCE_LINES {
                 evidence_lines.push(format!(
                     "  {} (slot {}): +{} {requested_symbol}",
@@ -265,12 +267,18 @@ pub fn execute_payment_watch<Transport: JsonHttpTransport>(
             format_base_units(expected_base_units as u128, token_entry.decimals)
         ),
         format!(
-            "Received: {} {requested_symbol} across {} settling transaction(s)",
+            "Received: {} {requested_symbol} across {settling_transaction_count} settling \
+             transaction(s)",
             format_base_units(total_received_base_units, token_entry.decimals),
-            evidence_lines.len()
         ),
     ];
     output_lines.append(&mut evidence_lines);
+    if settling_transaction_count > MAX_EVIDENCE_LINES {
+        output_lines.push(format!(
+            "Note: evidence shows the first {MAX_EVIDENCE_LINES} of \
+             {settling_transaction_count} settling transactions"
+        ));
+    }
     if total_received_base_units > expected_base_units as u128 {
         output_lines.push(format!(
             "Note: overpaid by {} {requested_symbol}",

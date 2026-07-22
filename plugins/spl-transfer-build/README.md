@@ -18,10 +18,12 @@ from `wit/v0`, compiles to a `wasm32-wasip2` component, and builds on
   built-in USDC entry caps at 100 per call until the operator redefines it.
 - **On-chain risk gate.** Before building, the mint is re-inspected with
   the same logic as [token-risk-check](../token-risk-check/README.md):
-  permanent delegates, active transfer hooks, frozen-by-default and
-  non-transferable mints refuse to build unless the operator sets an
-  explicit override. Configured decimals are checked against the chain,
-  which catches config typos and mint substitution in one move.
+  permanent delegates, active transfer hooks, frozen-by-default mints,
+  non-transferable mints, and mints carrying extensions this tool does not
+  recognize (their transfer semantics cannot be verified) refuse to build
+  unless the operator sets an explicit override. Configured decimals are
+  checked against the chain, which catches config typos and mint
+  substitution in one move.
 - **Durable nonce lifetime.** With `nonce_account` configured, the
   transaction uses the on-chain durable nonce (with `AdvanceNonceAccount`
   first) and stays signable while it waits in an approval queue; without
@@ -46,7 +48,7 @@ state). Signing happens wherever the operator keeps their keys.
 | `tokens` | USDC built in, capped at 100 | `SYMBOL=MINT:DECIMALS:MAX`, comma-separated; the per-call cap is mandatory. |
 | `rpc_url` | `https://api.mainnet-beta.solana.com` | JSON-RPC endpoint. Set your own. |
 | `nonce_account` | (unset) | Durable nonce account whose authority is `sender_wallet`. |
-| `override_risk_gate` | `false` | Set `"true"` to build despite RED mint findings (they still print). |
+| `override_risk_gate` | `false` | Set `"true"` to build despite gate findings, including unrecognized extensions (the findings still print). |
 
 Unknown keys refuse to run: the nightmare typo `allowed_recipient`
 (singular) produces a distinct config error naming the key instead of
@@ -122,9 +124,10 @@ noise.
   endpoint.
 - **Defenses.** Config-only sender; recipient allowlist; mandatory
   per-call caps; on-chain mint re-inspection with decimals cross-check and
-  a fail-closed risk gate; config-only RPC endpoint; `deny_unknown_fields`;
-  summary and transaction built from the same validated values, so the
-  human-readable lines cannot disagree with the bytes.
+  a fail-closed risk gate that also refuses mint extensions it cannot
+  identify; config-only RPC endpoint; `deny_unknown_fields`; summary and
+  transaction built from the same validated values, so the human-readable
+  lines cannot disagree with the bytes.
 - **Residual risk.** The plugin is stateless (the host runs each call in a
   fresh store), so caps are per call, not per day: an injected model could
   request the cap repeatedly. Mitigations: the host's approval gate sits in
@@ -145,7 +148,7 @@ manifest.toml          # name, version, wasm_path, capabilities, permissions
 ## Build and test
 
 ```bash
-cargo test                                        # 12 host tests, no network
+cargo test                                        # 18 host tests, no network
 rustup target add wasm32-wasip2
 cargo build --target wasm32-wasip2 --release      # the component
 cp target/wasm32-wasip2/release/spl_transfer_build.wasm spl_transfer_build.wasm

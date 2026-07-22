@@ -83,6 +83,25 @@ fn url_metacharacters_in_text_fields_cannot_inject_parameters() {
 }
 
 #[test]
+fn every_rfc3986_reserved_character_arrives_percent_encoded() {
+    // '%' itself must encode to %25 or a crafted label could smuggle
+    // pre-encoded sequences past a naive decoder.
+    let request = TransferRequest {
+        recipient: parse_pubkey(RECIPIENT).unwrap(),
+        amount: None,
+        spl_token: None,
+        reference: Vec::new(),
+        label: Some("100% off?/#=&+".to_string()),
+        message: None,
+        memo: None,
+    };
+    assert_eq!(
+        build_transfer_request_url(&request),
+        format!("solana:{RECIPIENT}?label=100%25%20off%3F%2F%23%3D%26%2B")
+    );
+}
+
+#[test]
 fn multiple_references_repeat_the_parameter() {
     let request = TransferRequest {
         recipient: parse_pubkey(RECIPIENT).unwrap(),

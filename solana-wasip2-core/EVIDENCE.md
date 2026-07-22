@@ -1,7 +1,7 @@
 # Evidence
 
 Every claim the suite's READMEs make, with the command that reproduces it.
-Regenerated 2026-07-21. One command runs everything:
+Regenerated 2026-07-22. One command runs everything:
 
 ```bash
 cd solana-wasip2-core && ./prove.sh
@@ -14,12 +14,12 @@ Exits 0 only when all checks pass. Requires Rust 1.96+ with the
 
 | Crate | Host tests | Adversarial subset |
 |---|---|---|
-| solana-wasip2-core | 56 | URL parameter injection, hostile-name sanitization, legacy-nonce rejection, malformed RPC shapes |
-| token-risk-check | 10 | hostile token-name verdict injection, typoed config, non-mint accounts |
-| solana-pay-request | 11 | smuggled recipient argument, URL metacharacter injection, broken token configs |
-| spl-transfer-build | 13 | unlisted recipient, over-cap amount, smuggled sender, decimals mismatch, risk-gate bypass attempt, foreign nonce authority |
-| payment-watch | 12 | verification redirection, reference-touch spoof, malformed cursor, failed-transaction spam |
-| **Total** | **102** | 38 tests assert refusal or containment by name |
+| solana-wasip2-core | 80 | URL parameter and reserved-character injection, hostile-name and ANSI-escape sanitization, multibyte truncation boundaries, legacy-nonce rejection, malformed RPC shapes (contradictory error+result, non-string amounts, out-of-range decimals), u64 amount boundaries, unknown-extension reporting |
+| token-risk-check | 13 | hostile token-name and token-symbol verdict injection, typoed config, non-mint accounts, zero-supply division guard |
+| solana-pay-request | 16 | smuggled recipient argument, URL metacharacter injection, broken token configs, label truncation and empty-after-sanitize omission, numeric-type confusion |
+| spl-transfer-build | 18 | unlisted recipient, over-cap amount (inclusive boundary pinned), smuggled sender, decimals mismatch, risk-gate bypass attempt, unrecognized-extension refusal, foreign nonce authority, hostile memo flattened in summary and bytes |
+| payment-watch | 16 | verification redirection, reference-touch spoof, malformed cursor and length boundaries, failed-transaction spam, metadata-less transactions count zero, evidence-cap count integrity |
+| **Total** | **143** | 66 tests assert refusal or containment by name |
 
 Injection paths additionally assert that zero RPC calls left the sandbox
 before the refusal (`rpc_call_count == 0` / `requested_urls.is_empty()`).
@@ -83,8 +83,8 @@ settled invoice with all notes present.
 
 The repository's own `tools/ci/validate_components.sh` (isolated snapshot
 per plugin, `--locked`, clippy `-D warnings` on both targets, release
-component build) on 2026-07-22, with `solana-wasip2-core 0.1.0` resolved
-from crates.io (https://crates.io/crates/solana-wasip2-core):
+component build), run at commit `d7b55e9` with `solana-wasip2-core 0.1.0`
+resolved from crates.io (https://crates.io/crates/solana-wasip2-core):
 
 ```
 token-risk-check:   test_rc=0 tests_passed=10 clippy_rc=0 wasm_clippy_rc=0 build_rc=0 artifact_bytes=368979
@@ -93,16 +93,20 @@ spl-transfer-build: test_rc=0 tests_passed=13 clippy_rc=0 wasm_clippy_rc=0 build
 payment-watch:      test_rc=0 tests_passed=12 clippy_rc=0 wasm_clippy_rc=0 build_rc=0 artifact_bytes=390571
 ```
 
-Context that makes these rows non-trivial: the gate snapshots only
-`plugins/<name>` and `wit/v0`, so an in-repo path dependency on a shared
-core fails with `test_rc=125` (we verified this empirically before
-publishing). Consuming the core from crates.io is what makes a shared-core
-suite pass this gate at all.
+The gate validates only a clean checkout, so its rows are per commit; the
+test counts above are the counts at `d7b55e9`, and the depth pass since
+(this document's test matrix, 143 tests total) re-runs through the same
+gate on every push. Context that makes these rows non-trivial: the gate
+snapshots only `plugins/<name>` and `wit/v0`, so an in-repo path
+dependency on a shared core fails with `test_rc=125` (we verified this
+empirically before publishing). Consuming the core from crates.io is what
+makes a shared-core suite pass this gate at all.
 
 The complete upstream workflow ("Validate plugin repository": fmt,
 registry contract, WIT drift, component matrix over the full plugin sweep,
-package dry run, required gate) also ran green end to end on this branch:
-https://github.com/Andy00L/zeroclaw-plugins/actions/runs/29884880566
+package dry run, required gate) also ran green end to end at the branch
+head `d7b55e9`:
+https://github.com/Andy00L/zeroclaw-plugins/actions/runs/29889338892
 
 ## Live devnet run: the durable-nonce A/B, and the loop closing on itself
 

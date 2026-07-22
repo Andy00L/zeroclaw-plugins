@@ -125,7 +125,7 @@ manifest.toml      # name, version, wasm_path, capabilities, permissions
 ## Build and test
 
 ```bash
-cargo test                                        # 9 host tests, no network
+cargo test                                        # 13 host tests, no network
 rustup target add wasm32-wasip2
 cargo build --target wasm32-wasip2 --release      # the component
 cp target/wasm32-wasip2/release/token_risk_check.wasm token_risk_check.wasm
